@@ -130,3 +130,11 @@ function listFilesInFolder() {
              if (mainFolders.length === 0) {
                  columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
              }
+        }) // <--- CHIUDE .then(data => {
+        .catch(error => { // GESTIONE DEGLI ERRORI DI CONNESSIONE
+            console.error('Errore durante la connessione all\'API:', error);
+            columnsContainer.innerHTML = '<p style="color:red;">Impossibile connettersi a Google Drive. Controlla la tua connessione.</p>';
+        }); // <--- CHIUDE .catch(error => {
+} // <--- CHIUDE function listFilesInFolder() {
+
+document.addEventListener('DOMContentLoaded', listFilesInFolder);
