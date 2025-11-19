@@ -166,7 +166,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO (MODIFICATA)
+// FUNZIONI DI RICERCA CONTENUTO (CORRETTA)
 // ====================================================================
 
 /**
@@ -184,11 +184,10 @@ function searchPdfContent() {
     toggleSearchView(true); // Passa alla vista Ricerca
     columnsContainer.innerHTML = `<p>Ricerca di "${query}" in corso...</p>`;
     
-    // 🛑 CORREZIONE 403: Forziamo la ricerca dei file che CONTENGONO il testo
-    // E che sono figli diretti della cartella radice, per risolvere l'errore di permessi.
-    // NOTA: Questa sintassi potrebbe non trovare i file troppo annidati, ma risolverà il 403.
     const encodedQuery = encodeURIComponent(query);
-    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and '${FOLDER_ID}' in parents&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    
+    // ✅ CORREZIONE: Rimosso 'and ${FOLDER_ID}' in parents' per consentire la ricerca nelle sottocartelle.
+    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
