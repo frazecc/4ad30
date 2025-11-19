@@ -2,7 +2,8 @@
 // CONFIGURAZIONE
 // ====================================================================
 
-const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI'; 
+// ✅ NUOVO FOLDER ID AGGIORNATO (PIC PER SITO)
+const FOLDER_ID = '1u3oZ-4XAOGEz5ygGEyb6fQrWnQ17sCjE'; 
 const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI'; 
 
 // Array per tenere traccia degli ID dei file PDF attualmente selezionati.
@@ -166,7 +167,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO (CORRETTA)
+// FUNZIONI DI RICERCA CONTENUTO (SOLUZIONE DEFINITIVA)
 // ====================================================================
 
 /**
@@ -186,9 +187,11 @@ function searchPdfContent() {
     
     const encodedQuery = encodeURIComponent(query);
     
-    // ✅ CORREZIONE: Sintassi ripristinata e pulita. Rimosso 'sharedWithMe' che causava Invalid Value.
-    // Confidiamo che i filtri mimeType e fullText bastino sui file pubblici.
-    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    // ✅ SOLUZIONE DEFINITIVA: Restringiamo la ricerca non solo con 'fullText', ma forziamo
+    // l'API a cercare solo i file che hanno il nostro FOLDER_ID nell'albero genealogico dei parents.
+    // L'operatore 'in parents' non è ricorsivo, ma Google Drive lo usa spesso come indice
+    // per limitare la ricerca ai contenuti pubblici all'interno dell'ambito fornito.
+    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and '${FOLDER_ID}' in parents&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
