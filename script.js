@@ -63,7 +63,6 @@ function handleFileCheckboxChange(fileId, fileName, isChecked) {
         }
     }
     
-    // Controlla se la checkbox esiste prima di chiamare l'aggiornamento dello stato
     const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
     if (fileCheckbox && fileCheckbox.closest('.document-column')) {
         updateColumnCheckboxStatus(fileId);
@@ -131,8 +130,6 @@ function handleColumnCheckboxChange(columnId, isChecked) {
  * Seleziona/Deseleziona tutti i file visibili nella vista corrente.
  */
 function selectAll(isChecked) {
-    // Gestisce sia l'area colonne che l'area risultati di ricerca
-    
     // 1. Deseleziona/seleziona i file nell'area colonne (se visibile)
     const allColumnCheckboxes = document.querySelectorAll('input[type="checkbox"].column-checkbox');
     allColumnCheckboxes.forEach(columnCheckbox => {
@@ -152,7 +149,6 @@ function selectAll(isChecked) {
          }
     });
     
-    // Se deselezioni tutto, svuota l'array e aggiorna il viewer una sola volta
     if (!isChecked) {
         selectedFiles.length = 0;
     }
@@ -170,7 +166,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO
+// FUNZIONI DI RICERCA CONTENUTO (MODIFICATA)
 // ====================================================================
 
 /**
@@ -188,8 +184,11 @@ function searchPdfContent() {
     toggleSearchView(true); // Passa alla vista Ricerca
     columnsContainer.innerHTML = `<p>Ricerca di "${query}" in corso...</p>`;
     
-    // Query API per cercare il testo ('fullText') SOLO nei PDF e SOLO nella cartella principale (e sottocartelle)
-    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${query}' and mimeType='application/pdf' and trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    // 🛑 CORREZIONE 403: Forziamo la ricerca dei file che CONTENGONO il testo
+    // E che sono figli diretti della cartella radice, per risolvere l'errore di permessi.
+    // NOTA: Questa sintassi potrebbe non trovare i file troppo annidati, ma risolverà il 403.
+    const encodedQuery = encodeURIComponent(query);
+    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and '${FOLDER_ID}' in parents&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
@@ -235,17 +234,14 @@ function renderSearchResults(results, containerElement, query) {
     results.forEach(item => {
         const li = document.createElement('li');
         
-        // Crea la checkbox
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `pdf-file-${item.id}`; 
         checkbox.name = item.name;
         
-        // Controlla se il file è già selezionato
         const isSelected = selectedFiles.some(f => f.id === item.id);
         checkbox.checked = isSelected;
         
-        // Aggiunge l'handler per la selezione
         checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
 
         const label = document.createElement('label');
@@ -376,8 +372,6 @@ function renderFolderContents(parentId, targetElement) {
 
 function listFilesInFolder() {
     const columnsContainer = document.getElementById('colonne-drive');
-    
-    // 🛑 RIGA RIMOSSA: Non chiamiamo più toggleSearchView(false) qui per evitare il loop
     
     columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
