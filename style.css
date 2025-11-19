@@ -1,22 +1,25 @@
 /* style.css */
-
-/* Stile per il corpo della pagina */
 body {
-    background-color: #f4f4f4; /* Sfondo grigio chiaro */
-    font-family: Arial, sans-serif; /* Un font leggibile */
-    margin: 40px; /* Spazio intorno al contenuto */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
 }
 
-/* Stile per il titolo principale */
-h1 {
-    color: darkred; /* Colore rosso scuro */
-    border-bottom: 2px solid darkred; /* Linea di separazione sotto il titolo */
-    padding-bottom: 10px;
+#lista-file {
+    list-style: none; /* Rimuove i pallini della lista */
+    padding: 0;
 }
 
-/* Stile per la classe di prova (ricordi il <p class="test-css">?) */
-.test-css {
-    color: blue; /* Colore blu */
-    font-size: 1.2em; /* Testo leggermente più grande */
-    font-style: italic;
+.document-link {
+    padding: 10px;
+    margin-bottom: 5px;
+    background-color: #e9ecef;
+    cursor: pointer; /* Indica che è cliccabile */
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.document-link:hover {
+    background-color: #ced4da; /* Effetto al passaggio del mouse */
 }
