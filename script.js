@@ -10,17 +10,35 @@ const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI';
 
 
 // ====================================================================
-// FUNZIONI DI BASE
+// FUNZIONI DI BASE PER LA VISUALIZZAZIONE E IL FILTRO
 // ====================================================================
 
 /**
- * Visualizza il PDF selezionato nel div 'pdf-viewer' usando l'embed di Google Drive.
+ * Aggiorna il visualizzatore PDF mostrando il primo file selezionato.
+ * Il viewer di Google Drive supporta tipicamente un solo embed alla volta.
  */
-function displayPdf(fileId) {
-    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-    
+function updateViewer() {
+    // Trova tutte le checkbox selezionate nell'intera pagina
+    const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked');
     const viewerElement = document.getElementById('pdf-viewer');
-    viewerElement.innerHTML = `<iframe src="${embedUrl}" width="100%" height="600px" frameborder="0"></iframe>`;
+    
+    if (selectedCheckboxes.length > 0) {
+        // Prendiamo l'ID del primo file selezionato
+        const firstFileId = selectedCheckboxes[0].value;
+        const embedUrl = `https://drive.google.com/file/d/${firstFileId}/preview`;
+        
+        // Visualizza il PDF selezionato
+        viewerElement.innerHTML = `<iframe src="${embedUrl}" width="100%" height="600px" frameborder="0"></iframe>`;
+
+        // Se ci sono più di un file selezionato, potresti voler mostrare un messaggio
+        if (selectedCheckboxes.length > 1) {
+             // Opzionale: puoi aggiungere qui un messaggio per informare l'utente
+        }
+        
+    } else {
+        // Nessun file selezionato, pulisci il visualizzatore
+        viewerElement.innerHTML = '<p>Seleziona un file PDF dalle colonne per visualizzarlo.</p>';
+    }
 }
 
 
@@ -63,9 +81,25 @@ function renderFolderContents(parentId, targetElement) {
                 if (!isFolder) {
                     // È un file PDF
                     if (item.mimeType === 'application/pdf') {
-                        li.textContent = item.name;
-                        li.classList.add('document-link');
-                        li.onclick = () => displayPdf(item.id);
+                        
+                        // Crea la casella di controllo
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = item.id; // L'ID del file è il valore della checkbox
+                        checkbox.id = `pdf-${item.id}`;
+                        
+                        // Assegna la funzione di aggiornamento al cambio di stato
+                        checkbox.onchange = updateViewer;
+                        
+                        // Crea l'etichetta per il nome del file
+                        const label = document.createElement('label');
+                        label.htmlFor = checkbox.id;
+                        label.textContent = item.name;
+                        
+                        // Aggiungi checkbox e label al list item
+                        li.appendChild(checkbox);
+                        li.appendChild(label);
+                        
                         ul.appendChild(li);
                     }
                 } else {
@@ -104,7 +138,7 @@ function listFilesInFolder() {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                columnsContainer.innerHTML = `<p style="color:red;">Errore API Finale: ${data.error.message}. Verifica permessi Drive.</p>`;
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API: ${data.error.message}. Verifica permessi Drive.</p>`;
                 console.error('API Error:', data.error);
                 return;
             }
@@ -125,7 +159,6 @@ function listFilesInFolder() {
                 columnDiv.innerHTML = `<h2>${folder.name}</h2>`;
 
                 // Popola la colonna chiamando la funzione di ricerca ricorsiva
-                // per i contenuti specifici di QUESTA cartella (renderFolderContents)
                 renderFolderContents(folder.id, columnDiv);
                 
                 columnsContainer.appendChild(columnDiv);
@@ -134,6 +167,9 @@ function listFilesInFolder() {
              if (mainFolders.length === 0) {
                  columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
              }
+             
+             // Inizializza il visualizzatore alla fine del caricamento
+             updateViewer();
         }) 
         .catch(error => { 
             console.error('Errore durante la connessione iniziale all\'API:', error);
