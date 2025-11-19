@@ -1,44 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Visualizzatore PDF Drive</title>
-    <link rel="stylesheet" href="style.css"> 
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizzatore PDF Google Drive (OAuth)</title>
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script> 
+    
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    
+    <script src="script.js" defer></script>
+
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #drive-controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        #colonne-drive { 
+            display: flex; 
+            flex-wrap: nowrap; /* Mantiene le colonne su una singola riga */
+            overflow-x: auto; /* Abilita lo scorrimento orizzontale */
+            gap: 20px; 
+            padding-bottom: 10px; /* Spazio per lo scrollbar */
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+        }
+        .document-column { 
+            flex-shrink: 0; /* Impedisce alle colonne di restringersi */
+            width: 300px; 
+            border: 1px solid #eee; 
+            padding: 10px; 
+            background-color: #f9f9f9;
+        }
+        .column-header { display: flex; align-items: center; margin-bottom: 10px; }
+        .column-header h2 { margin: 0 0 0 5px; font-size: 1.2em; }
+        .document-column ul { list-style: none; padding: 0; }
+        .document-column li { margin-bottom: 5px; font-size: 0.9em; }
+        .sub-folder-title { margin-top: 10px; font-size: 1em; color: #555; }
+        #pdf-viewer { margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; }
+        .pdf-document-container { margin-bottom: 30px; border: 1px solid #ccc; padding: 10px; }
+        .pdf-document-container h3 { margin-top: 0; font-size: 1.1em; color: #333; }
+        iframe { border: none; }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>Elenco Documenti per Categoria</h1>
-    </header>
-    
-    <div id="controlli-ricerca">
-        <div id="controlli-globali">
-            <button id="seleziona-tutto">Seleziona Tutto</button>
-            <button id="deseleziona-tutto">Deseleziona Tutto</button>
-        </div>
+
+    <h1>Visualizzatore Documenti Drive</h1>
+
+    <div id="drive-controls">
+        <button id="auth-button" style="display: none;">AUTORIZZA DRIVE</button>
         
-        <div id="search-container">
-            <input type="text" id="search-input" placeholder="Cerca parole nei documenti...">
-            <button id="search-button">Cerca</button>
-            <button id="reset-button" style="display:none;">Torna alle Colonne</button>
-        </div>
+        <input type="text" id="search-input" placeholder="Cerca nel contenuto dei PDF..." style="padding: 5px; width: 250px;">
+        <button id="search-button">Cerca</button>
+        <button id="reset-button" style="display: none;">Reset Vista</button>
+        <button id="seleziona-tutto">Seleziona Tutto</button>
+        <button id="deseleziona-tutto">Deseleziona Tutto</button>
     </div>
 
-    <main>
-        <div id="colonne-drive">
-            <p>Caricamento documenti...</p>
-        </div>
-        
-        <hr>
+    <hr>
+    
+    <div id="colonne-drive">
+        <p>Caricamento in corso...</p>
+    </div>
 
-        <h2>Visualizzatore PDF</h2>
-        
-        <div id="pdf-viewer">
-            <p>Seleziona uno o più file PDF per visualizzarli qui.</p>
-        </div>
-        
-    </main>
+    <hr>
 
-    <script src="script.js"></script> 
+    <div id="pdf-viewer">
+        <p>Seleziona uno o più file PDF per visualizzarli qui.</p>
+    </div>
+
 </body>
 </html>
