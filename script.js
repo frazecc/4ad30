@@ -3,7 +3,7 @@
 // ====================================================================
 
 const FOLDER_ID = '1u3oZ-4XAOGEz5ygGEyb6fQrWnQ17sCjE'; 
-const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI'; 
+const API_KEY = 'AIzaSyC0sxsoNUPZIUpkqicVSzWXjCQd7D1gqfs'; 
 
 // Array per tenere traccia degli ID dei file PDF attualmente selezionati.
 const selectedFiles = [];
