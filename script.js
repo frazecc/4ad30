@@ -3,8 +3,6 @@
 // ====================================================================
 
 const FOLDER_ID = '1u3oZ-4XAOGEz5ygGEyb6fQrWnQ17sCjE'; 
-// Chiave API precedente (La ricerca fullText ricorsiva fallirà ancora con 403, 
-// ma il caricamento della struttura dovrebbe funzionare.)
 const API_KEY = 'AIzaSyC0sxsoNUPZIUpkqicVSzWXjCQd7D1gqfs'; 
 
 // Array per tenere traccia degli ID dei file PDF attualmente selezionati.
@@ -12,7 +10,7 @@ const selectedFiles = [];
 
 
 // ====================================================================
-// FUNZIONI DI BASE (Mantengo le stesse per l'interfaccia)
+// FUNZIONI DI BASE
 // ====================================================================
 
 /**
@@ -160,7 +158,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA (RIPRISTINATA)
+// FUNZIONI DI RICERCA 
 // ====================================================================
 
 /**
@@ -223,4 +221,207 @@ function toggleSearchView(isSearching) {
     } else {
         resetButton.style.display = 'none';
         selectAllButton.style.display = 'inline-block';
-        deselectAllButton.style.
+        deselectAllButton.style.display = 'inline-block';
+        listFilesInFolder(); // Ritorna alla visualizzazione delle colonne
+    }
+}
+
+/**
+ * Esegue la ricerca, limitata ai file direttamente nella FOLDER_ID per stabilità.
+ */
+function searchPdfContent() {
+    const query = document.getElementById('search-input').value.trim();
+    const columnsContainer = document.getElementById('colonne-drive');
+    
+    if (!query) {
+        alert('Inserisci un termine di ricerca valido.');
+        return;
+    }
+    
+    toggleSearchView(true); // Passa alla vista Ricerca
+    columnsContainer.innerHTML = `<p>Ricerca di "${query}" in corso...</p>`;
+    
+    const encodedQuery = encodeURIComponent(query);
+    
+    // Query limitata al root per evitare il 403.
+    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and '${FOLDER_ID}' in parents&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                // Questo errore avverrà se cerchi contenuto in file annidati.
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API Ricerca: ${data.error.message}. La ricerca ricorsiva è bloccata.</p>`;
+                return;
+            }
+            
+            const results = data.files || [];
+            
+            // Renderizza i risultati in una colonna "Search Results"
+            renderSearchResults(results, columnsContainer, query);
+        })
+        .catch(error => {
+            console.error('Errore durante la ricerca:', error);
+            columnsContainer.innerHTML = '<p style="color:red;">Impossibile eseguire la ricerca.</p>';
+        });
+}
+
+function setupSearchControls() {
+    document.getElementById('search-button').addEventListener('click', searchPdfContent);
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            searchPdfContent();
+        }
+    });
+    document.getElementById('reset-button').addEventListener('click', () => toggleSearchView(false));
+}
+
+
+// ====================================================================
+// FUNZIONI DI CARICAMENTO DRIVE 
+// ====================================================================
+
+/**
+ * Costruisce la lista HTML dei file PDF e cartelle annidate per un dato parentId.
+ */
+function renderFolderContents(parentId, targetElement) {
+    // Query che funziona per caricare le cartelle annidate.
+    const url = `https://www.googleapis.com/drive/v3/files?q='${parentId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                targetElement.innerHTML += `<p style="color:red; font-size: 0.8em;">Errore nel caricamento dei contenuti: ${data.error.message}</p>`;
+                return;
+            }
+            
+            const children = data.files || [];
+            
+            children.sort((a, b) => {
+                const isFolderA = a.mimeType === 'application/vnd.google-apps.folder';
+                const isFolderB = b.mimeType === 'application/vnd.google-apps.folder';
+
+                if (isFolderA && !isFolderB) return -1;
+                if (!isFolderA && isFolderB) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            const ul = document.createElement('ul');
+            
+            children.forEach(item => {
+                const li = document.createElement('li');
+                
+                const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
+                
+                if (!isFolder) {
+                    if (item.mimeType === 'application/pdf') {
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `pdf-file-${item.id}`; 
+                        checkbox.name = item.name;
+                        
+                        checkbox.checked = selectedFiles.some(f => f.id === item.id);
+                        
+                        checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `pdf-file-${item.id}`;
+                        label.textContent = item.name;
+
+                        li.appendChild(checkbox);
+                        li.appendChild(label);
+                        ul.appendChild(li);
+                    }
+                } else {
+                    li.innerHTML = `<strong>${item.name}</strong>`;
+                    li.classList.add('sub-folder-title');
+                    ul.appendChild(li);
+                    
+                    renderFolderContents(item.id, li);
+                }
+            });
+            
+            if (ul.children.length > 0) {
+                targetElement.appendChild(ul);
+            }
+            
+            const mainColumnDiv = targetElement.closest('.document-column');
+            if(mainColumnDiv) {
+                 updateColumnCheckboxStatus(mainColumnDiv.dataset.folderId);
+            }
+        })
+        .catch(error => {
+            console.error('Errore durante la connessione ai contenuti:', error);
+        });
+}
+
+
+function listFilesInFolder() {
+    const columnsContainer = document.getElementById('colonne-drive');
+    
+    columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
+    
+    // Query per trovare le cartelle figlie dirette della FOLDER_ID
+    const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API: ${data.error.message}. Verifica permessi Drive.</p>`;
+                console.error('API Error:', data.error);
+                return;
+            }
+            
+            columnsContainer.innerHTML = '';
+            const mainFolders = data.files || [];
+            
+            mainFolders.sort((a, b) => a.name.localeCompare(b.name));
+
+            mainFolders.forEach(folder => {
+                const columnDiv = document.createElement('div');
+                columnDiv.classList.add('document-column');
+                columnDiv.dataset.folderId = folder.id;
+
+                const colCheckbox = document.createElement('input');
+                colCheckbox.type = 'checkbox';
+                colCheckbox.id = `col-${folder.id}`;
+                colCheckbox.classList.add('column-checkbox');
+                colCheckbox.onchange = (e) => handleColumnCheckboxChange(folder.id, e.target.checked);
+
+                const titleHeader = document.createElement('h2');
+                titleHeader.textContent = folder.name;
+                
+                const headerContainer = document.createElement('div');
+                headerContainer.classList.add('column-header');
+                headerContainer.appendChild(colCheckbox);
+                headerContainer.appendChild(titleHeader);
+
+                columnDiv.appendChild(headerContainer);
+
+                renderFolderContents(folder.id, columnDiv);
+                
+                columnsContainer.appendChild(columnDiv);
+            });
+            
+             if (mainFolders.length === 0) {
+                 columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
+             }
+             
+             setupGlobalControls();
+             setupSearchControls();
+             updateViewer();
+        }) 
+        .catch(error => { 
+            console.error('Errore durante la connessione iniziale all\'API:', error);
+            columnsContainer.innerHTML = '<p style="color:red;">Impossibile connettersi a Google Drive.</p>';
+        }); 
+} 
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Inizializza la vista
+    listFilesInFolder();
+    // Nasconde i pulsanti di reset all'avvio
+    document.getElementById('reset-button').style.display = 'none'; 
+});
