@@ -3,279 +3,224 @@
 // ====================================================================
 
 const FOLDER_ID = '1u3oZ-4XAOGEz5ygGEyb6fQrWnQ17sCjE'; 
-// 🔑 SOSTITUISCI con il tuo ID CLIENTE ottenuto dalla Console Cloud
-const CLIENT_ID = '816591901188-disho7bqlb3g1m9d07amkfp989k0hhto.apps.googleusercontent.com'; 
-const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+// Chiave API precedente (La ricerca fullText ricorsiva fallirà ancora con 403, 
+// ma il caricamento della struttura dovrebbe funzionare.)
+const API_KEY = 'AIzaSyC0sxsoNUPZIUpkqicVSzWXjCQd7D1gqfs'; 
 
-// L'ambito richiesto per vedere i metadati dei file pubblici e di quelli condivisi con l'utente
-const SCOPES = 'https://www.googleapis.com/auth/drive.readonly'; 
-
+// Array per tenere traccia degli ID dei file PDF attualmente selezionati.
 const selectedFiles = [];
-let mainSubfolderIDs = []; 
-let GAPI_LOADED = false;
-let GOOGLE_AUTH_CLIENT = null;
 
 
 // ====================================================================
-// FUNZIONI DI AUTORIZZAZIONE e INIZIALIZZAZIONE
+// FUNZIONI DI BASE (Mantengo le stesse per l'interfaccia)
 // ====================================================================
 
 /**
- * Funzione per gestire il login o l'autorizzazione
+ * Aggiorna il viewer PDF rimuovendo o aggiungendo l'iframe del file selezionato.
  */
-function handleAuthClick() {
-    if (GOOGLE_AUTH_CLIENT) {
-        // Avvia il processo di autorizzazione. Questo aprirà il pop-up di Google.
-        GOOGLE_AUTH_CLIENT.requestAccessToken();
-    } else {
-        alert("Librerie Google non caricate. Ricarica la pagina.");
-    }
-}
-
-/**
- * Gestisce la risposta del token restituita da Google.
- * Se l'utente ha autorizzato, carichiamo la struttura.
- */
-function handleAuthResponse(tokenResponse) {
-    if (tokenResponse && tokenResponse.access_token) {
-        console.log("Accesso concesso. Inizio caricamento Drive...");
-        listFilesInFolder(); // Avvia il caricamento dei file
-    } else {
-        console.error("Accesso negato o token non ricevuto.");
-    }
-}
-
-/**
- * Inizializza il client GIS (Google Identity Services) e l'interfaccia.
- */
-function initClient() {
-    // 1. Inizializza il client di autorizzazione GIS
-    GOOGLE_AUTH_CLIENT = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: handleAuthResponse, // Funzione da chiamare dopo l'autorizzazione
-    });
-
-    // 2. Aggiunge un handler per il pulsante di login (che ora sarà il pulsante Cerca/Struttura)
-    const authButton = document.getElementById('auth-button'); // Creiamo un nuovo pulsante nell'HTML
-    if (authButton) {
-        authButton.onclick = handleAuthClick;
-        authButton.textContent = 'AUTORIZZA E CARICA DRIVE';
-        authButton.style.display = 'block';
-    }
+function updateViewer() {
+    const viewerElement = document.getElementById('pdf-viewer');
+    viewerElement.innerHTML = '';
     
-    document.getElementById('colonne-drive').innerHTML = '<p>Premi il pulsante "AUTORIZZA" per connetterti al Drive.</p>';
-
-    // 3. Carica la libreria gapi (per le successive chiamate API)
-    gapi.load('client', () => {
-        gapi.client.init({
-            discoveryDocs: DISCOVERY_DOCS,
-        }).then(() => {
-            GAPI_LOADED = true;
-            console.log("Libreria GAPI caricata.");
-        });
-    });
-}
-
-
-// ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO (ORA USANO gapi.client)
-// ====================================================================
-
-function searchPdfContent() {
-    if (!gapi.client.getToken()) {
-        alert("Devi prima autorizzare l'accesso a Google Drive.");
-        handleAuthClick();
+    if (selectedFiles.length === 0) {
+        viewerElement.innerHTML = '<p>Seleziona uno o più file PDF per visualizzarli qui.</p>';
         return;
     }
-    
-    const query = document.getElementById('search-input').value.trim();
-    const columnsContainer = document.getElementById('colonne-drive');
-    
-    if (!query) {
-        alert('Inserisci un termine di ricerca valido.');
-        return;
-    }
-    
-    toggleSearchView(true);
-    columnsContainer.innerHTML = `<p>Ricerca di "${query}" in corso...</p>`;
-    
-    // ✅ UTILIZZO DI GAPI PER LA CHIAMATA API (più sicuro e corretto con OAuth)
-    const encodedQuery = query.replace(/'/g, "\\'"); 
-    const driveQuery = `fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false`;
-    
-    gapi.client.drive.files.list({
-        q: driveQuery,
-        fields: 'files(id,name,mimeType,parents)',
-        pageSize: 100 // Aumentiamo il limite di pagina per la ricerca
-    }).then(response => {
-        const results = response.result.files || [];
-        renderSearchResults(results, columnsContainer, query);
-    }).catch(error => {
-        console.error('Errore durante la ricerca:', error);
-        columnsContainer.innerHTML = `<p style="color:red;">Errore API Ricerca: ${error.body ? JSON.parse(error.body).error.message : error.message}.</p>`;
+
+    selectedFiles.forEach(fileData => {
+        const embedUrl = `https://drive.google.com/file/d/${fileData.id}/preview`;
+        
+        const pdfContainer = document.createElement('div');
+        pdfContainer.classList.add('pdf-document-container');
+        
+        const titleHeader = document.createElement('h3');
+        titleHeader.textContent = fileData.name;
+        pdfContainer.appendChild(titleHeader);
+        
+        const iframe = document.createElement('iframe');
+        iframe.src = embedUrl;
+        iframe.width = "100%";
+        iframe.height = "600px";
+        iframe.frameborder = "0";
+        
+        pdfContainer.appendChild(iframe);
+        viewerElement.appendChild(pdfContainer);
     });
 }
 
+/**
+ * Gestisce la selezione/deselezione di un file PDF.
+ */
+function handleFileCheckboxChange(fileId, fileName, isChecked) {
+    const fileIndex = selectedFiles.findIndex(f => f.id === fileId);
 
-// ====================================================================
-// FUNZIONI DI CARICAMENTO DRIVE (ORA USANO gapi.client)
-// ====================================================================
-
-function renderFolderContents(parentId, targetElement) {
-    // ✅ NUOVA QUERY: Utilizziamo 'in parents' che ora funziona con OAuth!
-    const driveQuery = `'${parentId}' in parents and trashed=false`;
-    
-    gapi.client.drive.files.list({
-        q: driveQuery,
-        fields: 'files(id,name,mimeType,parents)',
-        pageSize: 100
-    }).then(response => {
-        const children = response.result.files || [];
-        
-        // ... (logica di ordinamento e rendering come prima) ...
-        // (Devi copiare qui la parte di codice che gestisce l'ordinamento e la creazione di ul/li)
-        
-        children.sort((a, b) => {
-            const isFolderA = a.mimeType === 'application/vnd.google-apps.folder';
-            const isFolderB = b.mimeType === 'application/vnd.google-apps.folder';
-
-            if (isFolderA && !isFolderB) return -1;
-            if (!isFolderA && isFolderB) return 1;
-            return a.name.localeCompare(b.name);
-        });
-
-        const ul = document.createElement('ul');
-        
-        children.forEach(item => {
-            const li = document.createElement('li');
-            
-            const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
-            
-            if (!isFolder) {
-                if (item.mimeType === 'application/pdf') {
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.id = `pdf-file-${item.id}`; 
-                    checkbox.name = item.name;
-                    checkbox.checked = selectedFiles.some(f => f.id === item.id);
-                    checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
-
-                    const label = document.createElement('label');
-                    label.htmlFor = `pdf-file-${item.id}`;
-                    label.textContent = item.name;
-
-                    li.appendChild(checkbox);
-                    li.appendChild(label);
-                    ul.appendChild(li);
-                }
-            } else {
-                li.innerHTML = `<strong>${item.name}</strong>`;
-                li.classList.add('sub-folder-title');
-                ul.appendChild(li);
-                
-                renderFolderContents(item.id, li);
-            }
-        });
-        
-        if (ul.children.length > 0) {
-            targetElement.appendChild(ul);
+    if (isChecked) {
+        if (fileIndex === -1) {
+            selectedFiles.push({ id: fileId, name: fileName });
         }
-        
-        const mainColumnDiv = targetElement.closest('.document-column');
-        if(mainColumnDiv) {
-             updateColumnCheckboxStatus(mainColumnDiv.dataset.folderId);
+    } else {
+        if (fileIndex > -1) {
+            selectedFiles.splice(fileIndex, 1);
         }
-        
-    }).catch(error => {
-        console.error('Errore durante la connessione ai contenuti:', error);
-        targetElement.innerHTML += `<p style="color:red; font-size: 0.8em;">Errore nel caricamento dei contenuti: ${error.body ? JSON.parse(error.body).error.message : error.message}.</p>`;
-    });
-}
-
-
-function listFilesInFolder() {
-    if (!gapi.client.getToken()) {
-        alert("Devi prima autorizzare l'accesso a Google Drive.");
-        handleAuthClick();
-        return;
     }
     
-    const columnsContainer = document.getElementById('colonne-drive');
-    mainSubfolderIDs = []; 
-    columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
+    const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
+    if (fileCheckbox && fileCheckbox.closest('.document-column')) {
+        updateColumnCheckboxStatus(fileId);
+    }
     
-    const driveQuery = `'${FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    updateViewer();
+}
+
+/**
+ * Aggiorna lo stato della checkbox della colonna.
+ */
+function updateColumnCheckboxStatus(fileId) {
+    const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
+    if (!fileCheckbox) return;
     
-    gapi.client.drive.files.list({
-        q: driveQuery,
-        fields: 'files(id,name,mimeType,parents)',
-        pageSize: 100
-    }).then(response => {
-        const mainFolders = response.result.files || [];
-        columnsContainer.innerHTML = '';
-        
-        mainFolders.sort((a, b) => a.name.localeCompare(b.name));
+    const columnDiv = fileCheckbox.closest('.document-column');
+    if (!columnDiv) return;
 
-        mainFolders.forEach(folder => {
-            mainSubfolderIDs.push(folder.id); 
-            
-            const columnDiv = document.createElement('div');
-            columnDiv.classList.add('document-column');
-            columnDiv.dataset.folderId = folder.id;
+    const columnId = columnDiv.dataset.folderId;
+    const columnCheckbox = document.getElementById(`col-${columnId}`);
+    
+    const allFiles = columnDiv.querySelectorAll('input[type="checkbox"]:not(.column-checkbox)');
+    const checkedFiles = columnDiv.querySelectorAll('input[type="checkbox"]:checked:not(.column-checkbox)');
 
-            // ... (logica di creazione checkbox e header come prima)
-            // (Devi copiare qui la parte di codice che crea columnDiv, colCheckbox, titleHeader e headerContainer)
-            
-            const colCheckbox = document.createElement('input');
-            colCheckbox.type = 'checkbox';
-            colCheckbox.id = `col-${folder.id}`;
-            colCheckbox.classList.add('column-checkbox');
-            colCheckbox.onchange = (e) => handleColumnCheckboxChange(folder.id, e.target.checked);
+    if (checkedFiles.length === allFiles.length) {
+        columnCheckbox.checked = true;
+        columnCheckbox.indeterminate = false;
+    } else if (checkedFiles.length > 0) {
+        columnCheckbox.checked = false;
+        columnCheckbox.indeterminate = true;
+    } else {
+        columnCheckbox.checked = false;
+        columnCheckbox.indeterminate = false;
+    }
+}
 
-            const titleHeader = document.createElement('h2');
-            titleHeader.textContent = folder.name;
-            
-            const headerContainer = document.createElement('div');
-            headerContainer.classList.add('column-header');
-            headerContainer.appendChild(colCheckbox);
-            headerContainer.appendChild(titleHeader);
+/**
+ * Seleziona/deseleziona tutte le checkbox sotto una specifica colonna.
+ */
+function handleColumnCheckboxChange(columnId, isChecked) {
+    const columnDiv = document.querySelector(`.document-column[data-folder-id="${columnId}"]`);
+    if (!columnDiv) return;
 
-            columnDiv.appendChild(headerContainer);
+    const fileCheckboxes = columnDiv.querySelectorAll('input[type="checkbox"]:not(.column-checkbox)');
+    
+    fileCheckboxes.forEach(checkbox => {
+        if (checkbox.checked !== isChecked) {
+            checkbox.checked = isChecked;
+            handleFileCheckboxChange(checkbox.id.replace('pdf-file-', ''), checkbox.name, isChecked);
+        }
+    });
 
-            renderFolderContents(folder.id, columnDiv);
-            
-            columnsContainer.appendChild(columnDiv);
-        });
-        
-         if (mainFolders.length === 0) {
-             columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
+    const columnCheckbox = document.getElementById(`col-${columnId}`);
+    if (columnCheckbox) {
+        columnCheckbox.indeterminate = false;
+    }
+}
+
+// ====================================================================
+// GESTIONE CONTROLLI GLOBALI
+// ====================================================================
+
+function selectAll(isChecked) {
+    // Gestione colonne
+    const allColumnCheckboxes = document.querySelectorAll('input[type="checkbox"].column-checkbox');
+    allColumnCheckboxes.forEach(columnCheckbox => {
+        const columnId = columnCheckbox.id.replace('col-', '');
+        if (columnCheckbox.checked !== isChecked) {
+             columnCheckbox.checked = isChecked;
+             handleColumnCheckboxChange(columnId, isChecked);
+        }
+    });
+
+    // Gestione risultati ricerca
+    const allSearchCheckboxes = document.querySelectorAll('#search-results input[type="checkbox"]');
+    allSearchCheckboxes.forEach(checkbox => {
+         if (checkbox.checked !== isChecked) {
+             checkbox.checked = isChecked;
+             handleFileCheckboxChange(checkbox.id.replace('pdf-file-', ''), checkbox.name, isChecked);
          }
-         
-         setupGlobalControls();
-         setupSearchControls();
-         updateViewer();
-         
-    }).catch(error => { 
-        console.error('Errore durante la connessione iniziale all\'API:', error);
-        columnsContainer.innerHTML = `<p style="color:red;">Impossibile connettersi a Google Drive. Errore: ${error.body ? JSON.parse(error.body).error.message : error.message}</p>`;
-    }); 
-} 
-
-document.addEventListener('DOMContentLoaded', () => {
-    // Aggiungiamo un listener per caricare l'API dopo che il DOM è pronto
-    const authButton = document.createElement('button');
-    authButton.id = 'auth-button';
-    authButton.style.display = 'none'; // Nascondi fino all'inizializzazione
-    document.getElementById('drive-controls').prepend(authButton);
+    });
     
-    // Carica la libreria GAPI per l'inizializzazione
-    const scriptGapi = document.createElement('script');
-    scriptGapi.src = "https://apis.google.com/js/api.js";
-    scriptGapi.onload = initClient; // Chiama initClient una volta caricata l'API GAPI
-    document.head.appendChild(scriptGapi);
+    if (!isChecked) {
+        selectedFiles.length = 0;
+    }
 
-    document.getElementById('reset-button').style.display = 'none'; 
-});
-// Assicurati che le funzioni di controllo globale/ricerca non modificate siano incluse qui!
-// (p.es. renderSearchResults, toggleSearchView, setupSearchControls, handleColumnCheckboxChange, ecc.)
+    updateViewer();
+}
+
+function setupGlobalControls() {
+    document.getElementById('seleziona-tutto').addEventListener('click', () => selectAll(true));
+    document.getElementById('deseleziona-tutto').addEventListener('click', () => selectAll(false));
+}
+
+
+// ====================================================================
+// FUNZIONI DI RICERCA (RIPRISTINATA)
+// ====================================================================
+
+/**
+ * Renderizza i risultati della ricerca in una singola colonna.
+ */
+function renderSearchResults(results, containerElement, query) {
+    containerElement.innerHTML = '';
+    
+    if (results.length === 0) {
+        containerElement.innerHTML = `<p>Nessun documento trovato per la ricerca: <strong>${query}</strong>.</p>`;
+        return;
+    }
+
+    const searchColumn = document.createElement('div');
+    searchColumn.id = 'search-results';
+    searchColumn.classList.add('document-column');
+    searchColumn.innerHTML = `<h2>Risultati per "${query}"</h2>`;
+    
+    const ul = document.createElement('ul');
+    results.sort((a, b) => a.name.localeCompare(b.name));
+
+    results.forEach(item => {
+        const li = document.createElement('li');
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `pdf-file-${item.id}`; 
+        checkbox.name = item.name;
+        
+        const isSelected = selectedFiles.some(f => f.id === item.id);
+        checkbox.checked = isSelected;
+        
+        checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
+
+        const label = document.createElement('label');
+        label.htmlFor = `pdf-file-${item.id}`;
+        label.textContent = item.name;
+
+        li.appendChild(checkbox);
+        li.appendChild(label);
+        ul.appendChild(li);
+    });
+
+    searchColumn.appendChild(ul);
+    containerElement.appendChild(searchColumn);
+}
+
+/**
+ * Passa dalla vista colonne alla vista ricerca e viceversa.
+ */
+function toggleSearchView(isSearching) {
+    const resetButton = document.getElementById('reset-button');
+    const selectAllButton = document.getElementById('seleziona-tutto');
+    const deselectAllButton = document.getElementById('deseleziona-tutto');
+
+    if (isSearching) {
+        resetButton.style.display = 'inline-block';
+        selectAllButton.style.display = 'none';
+        deselectAllButton.style.display = 'none';
+    } else {
+        resetButton.style.display = 'none';
+        selectAllButton.style.display = 'inline-block';
+        deselectAllButton.style.
