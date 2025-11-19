@@ -2,17 +2,27 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Tool di Fz per 4AD - v3.0</title>
-    <link rel="stylesheet" href="style.css" type="text/css">
+    <title>Visualizzatore PDF Drive</title>
+    <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
     <header>
-        <h1>Tool di Fz per 4AD - v3.0</h1>
+        <h1>Elenco Documenti</h1>
     </header>
 
     <main>
-        <p>Questo è un paragrafo di prova. Se il testo appare grande e ha il colore che hai impostato nel CSS, allora tutto funziona correttamente!</p>
-        <p class="test-css">Questa sezione usa una classe CSS per verificare lo stile.</p>
-    </main>
-    </body>
+        <ul id="lista-file">
+            <li>Caricamento documenti...</li>
+        </ul>
+        
+        <hr>
+
+        <div id="pdf-viewer">
+            <p>Seleziona un file dall'elenco per visualizzarlo qui.</p>
+        </div>
+        
+        </main>
+
+    <script src="script.js"></script> 
+</body>
 </html>
