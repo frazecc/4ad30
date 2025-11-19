@@ -1,5 +1,5 @@
 // ====================================================================
-// CONFIGURAZIONE (DATI FORNITI DALL'UTENTE)
+// CONFIGURAZIONE (DATI FORNITI DAL'UTENTE)
 // ====================================================================
 
 // L'ID della tua cartella madre 'PIC PER SITO'
