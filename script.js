@@ -131,7 +131,7 @@ function handleFileCheckboxChange(fileId, fileName, isChecked) {
 
     if (isChecked) {
         if (fileIndex === -1) {
-            // ✅ NUOVA LOGICA: Inserimento in ordine alfabetico
+            // Logica: Inserimento in ordine alfabetico
             
             // Trova la posizione in cui inserire il nuovo file
             let insertIndex = selectedFiles.findIndex(f => f.name.localeCompare(fileName) > 0);
@@ -226,9 +226,6 @@ function selectAll(isChecked) {
         }
     });
     
-    // Se isChecked è false, l'array selectedFiles viene azzerato da handleFileCheckboxChange
-    // Se è true, l'array è popolato e ordinato da handleFileCheckboxChange
-
     updateViewer();
 }
 
@@ -239,11 +236,12 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI CARICAMENTO DRIVE (INVARIANTI)
+// FUNZIONI DI CARICAMENTO DRIVE 
 // ====================================================================
 
 /**
  * Costruisce la lista HTML dei file PDF e cartelle annidate per un dato parentId.
+ * ✅ QUI ESEGUIAMO LA SELEZIONE AUTOMATICA DEI PDF.
  */
 function renderFolderContents(parentId, targetElement) {
     const url = `https://www.googleapis.com/drive/v3/files?q='${parentId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
@@ -282,8 +280,23 @@ function renderFolderContents(parentId, targetElement) {
                         checkbox.id = `pdf-file-${item.id}`; 
                         checkbox.name = item.name;
                         
-                        checkbox.checked = selectedFiles.some(f => f.id === item.id);
+                        // ✅ IMPOSTA TUTTO SELEZIONATO DI DEFAULT
+                        checkbox.checked = true;
                         
+                        // ✅ AGGIUNGE IL FILE ALL'ARRAY selectedFiles in ordine alfabetico
+                        // (solo se non è già stato aggiunto da un'altra colonna)
+                        if (!selectedFiles.some(f => f.id === item.id)) {
+                             const fileData = { id: item.id, name: item.name };
+                             let insertIndex = selectedFiles.findIndex(f => f.name.localeCompare(item.name) > 0);
+
+                             if (insertIndex === -1) {
+                                selectedFiles.push(fileData);
+                             } else {
+                                selectedFiles.splice(insertIndex, 0, fileData);
+                             }
+                        }
+                        
+                        // Gestisce i futuri cambiamenti manuali
                         checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
 
                         const label = document.createElement('label');
@@ -309,8 +322,14 @@ function renderFolderContents(parentId, targetElement) {
             
             const mainColumnDiv = targetElement.closest('.document-column');
             if(mainColumnDiv) {
-                 updateColumnCheckboxStatus(mainColumnDiv.dataset.folderId);
+                 // Controlla la checkbox principale della colonna dopo aver finito
+                 const columnCheckbox = document.getElementById(`col-${mainColumnDiv.dataset.folderId}`);
+                 if (columnCheckbox) {
+                    columnCheckbox.checked = true;
+                 }
             }
+            
+            // L'aggiornamento del viewer verrà chiamato solo alla fine di listFilesInFolder
         })
         .catch(error => {
             console.error('Errore durante la connessione ai contenuti:', error);
@@ -339,6 +358,8 @@ function listFilesInFolder() {
             
             mainFolders.sort((a, b) => a.name.localeCompare(b.name));
 
+            const fetchPromises = [];
+
             mainFolders.forEach(folder => {
                 const columnDiv = document.createElement('div');
                 columnDiv.classList.add('document-column');
@@ -359,8 +380,12 @@ function listFilesInFolder() {
                 headerContainer.appendChild(titleHeader);
 
                 columnDiv.appendChild(headerContainer);
-
-                renderFolderContents(folder.id, columnDiv);
+                
+                // Cattura la Promise di caricamento ricorsivo
+                const renderPromise = new Promise(resolve => {
+                    renderFolderContents(folder.id, columnDiv).finally(resolve);
+                });
+                fetchPromises.push(renderPromise);
                 
                 columnsContainer.appendChild(columnDiv);
             });
@@ -369,8 +394,14 @@ function listFilesInFolder() {
                  columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
              }
              
-             setupGlobalControls();
-             updateViewer();
+             // Aspetta che tutte le chiamate ricorsive (renderFolderContents) finiscano
+             Promise.all(fetchPromises.map(p => p.catch(() => {}))).then(() => {
+                // Solo DOPO che tutti i file sono stati caricati/aggiunti all'array, 
+                // aggiorniamo la vista finale
+                setupGlobalControls();
+                updateViewer(); 
+             });
+
         }) 
         .catch(error => { 
             console.error('Errore durante la connessione iniziale all\'API:', error);
