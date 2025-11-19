@@ -5,12 +5,12 @@
 // L'ID della tua cartella madre 'PIC PER SITO' (non modificare)
 const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI'; 
 
-// 🛑 IMPORTANTE: SOSTITUISCI CON LA TUA CHIAVE API REALE
+// 🛑 CHIAVE API FORNITA DALL'UTENTE
 const API_KEY = 'AIzaSyBPO2PX97SpA_2XqXjv-iR_Hjxr-RY7v7I'; 
 
 
 // ====================================================================
-// FUNZIONI DI VISUALIZZAZIONE E RICERCA ELEMENTI
+// FUNZIONI DI VISUALIZZAZIONE E COSTRUZIONE
 // ====================================================================
 
 /**
@@ -18,35 +18,33 @@ const API_KEY = 'AIzaSyBPO2PX97SpA_2XqXjv-iR_Hjxr-RY7v7I';
  * @param {string} fileId - L'ID univoco del file PDF su Google Drive.
  */
 function displayPdf(fileId) {
-    // URL di embed di Google Drive per la visualizzazione
     const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
     
     const viewerElement = document.getElementById('pdf-viewer');
-    // Inserisce l'iFrame nella sezione di visualizzazione
     viewerElement.innerHTML = `<iframe src="${embedUrl}" width="100%" height="600px" frameborder="0"></iframe>`;
 }
 
 
 /**
- * Costruisce ricorsivamente la lista HTML (ul/li) basandosi sulla struttura parent-child.
+ * Costruisce la lista HTML annidata (ul/li) per i file all'interno di una cartella.
  * @param {string} parentId - L'ID della cartella genitore da elaborare.
  * @param {Array<Object>} elements - Tutti i file e le cartelle recuperati dall'API.
  * @param {HTMLElement} targetElement - L'elemento HTML in cui iniettare la lista.
  */
-function renderTree(parentId, elements, targetElement) {
-    // Trova tutti gli elementi (file/cartelle) che hanno parentId come loro genitore
-    const children = elements.filter(el => el.parents && el.parents.includes(parentId));
+function renderFileList(parentId, elements, targetElement) {
+    // Trova solo i PDF e le eventuali sottocartelle
+    const children = elements.filter(el => 
+        el.parents && el.parents.includes(parentId) && 
+        (el.mimeType === 'application/pdf' || el.mimeType === 'application/vnd.google-apps.folder')
+    );
     
-    // Ordina prima le cartelle, poi i file, in ordine alfabetico
+    // Ordina: Cartelle prime, poi File, in ordine alfabetico
     children.sort((a, b) => {
         const isFolderA = a.mimeType === 'application/vnd.google-apps.folder';
         const isFolderB = b.mimeType === 'application/vnd.google-apps.folder';
 
-        // Metti le cartelle prima dei file
         if (isFolderA && !isFolderB) return -1;
         if (!isFolderA && isFolderB) return 1;
-        
-        // Ordina alfabeticamente
         return a.name.localeCompare(b.name);
     });
 
@@ -54,22 +52,24 @@ function renderTree(parentId, elements, targetElement) {
     
     children.forEach(item => {
         const li = document.createElement('li');
-        li.textContent = item.name;
         
         const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
         
-        if (!isFolder && item.mimeType === 'application/pdf') {
-            // È un file PDF: rendilo cliccabile per la visualizzazione
+        if (!isFolder) {
+            // È un file PDF
+            li.textContent = item.name;
             li.classList.add('document-link');
             li.onclick = () => displayPdf(item.id);
-        } else if (isFolder) {
-            // È una cartella: aggiungi uno stile specifico e richiama la ricorsione
-            li.classList.add('folder');
+            ul.appendChild(li);
+        } else {
+            // È una sottocartella (gestiamo l'annidamento se vuoi)
+            li.innerHTML = `<strong>${item.name}</strong>`;
+            li.classList.add('sub-folder-title');
             
-            // Richiama ricorsivamente la funzione per costruire le sottocartelle
-            renderTree(item.id, elements, li); 
+            // Richiama ricorsivamente per annidare i contenuti di questa sottocartella
+            renderFileList(item.id, elements, li); 
+            ul.appendChild(li);
         }
-        ul.appendChild(li);
     });
     
     targetElement.appendChild(ul);
@@ -77,49 +77,61 @@ function renderTree(parentId, elements, targetElement) {
 
 
 // ====================================================================
-// FUNZIONE PRINCIPALE: RECUPERO DATI API
+// FUNZIONE PRINCIPALE: RECUPERO DATI E COSTRUZIONE COLONNE
 // ====================================================================
 
-/**
- * Avvia il processo: recupera tutti i file e le cartelle dalla cartella radice 
- * su Google Drive e avvia la costruzione della struttura HTML.
- */
 function listFilesInFolder() {
-    const fileListElement = document.getElementById('lista-file');
-    fileListElement.innerHTML = '<li>Caricamento struttura Drive...</li>';
+    const columnsContainer = document.getElementById('colonne-drive');
+    columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
-    // Query che recupera TUTTI i file e cartelle non cestinati (trashed=false) 
-    // che sono figli diretti o indiretti di FOLDER_ID.
+    // Query che recupera TUTTI i file e cartelle non cestinati
     const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                fileListElement.innerHTML = `<li>Errore API: ${data.error.message}. Controlla la chiave API e le autorizzazioni.</li>`;
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API: ${data.error.message}. Controlla la chiave API e le autorizzazioni.</p>`;
                 console.error('API Error:', data.error);
                 return;
             }
             
-            fileListElement.innerHTML = ''; // Pulisce il messaggio di caricamento
+            columnsContainer.innerHTML = ''; // Pulisce il messaggio di caricamento
             
             const allElements = data.files || [];
             
-            if (allElements.length === 0) {
-                 fileListElement.innerHTML = '<li>Nessun file o cartella trovato sotto la radice.</li>';
-                 return;
-            }
+            // 1. Identifica le SOTTOCARTELLE PRINCIPALI (quelle sotto FOLDER_ID)
+            const mainFolders = allElements.filter(el => 
+                el.parents && el.parents.includes(FOLDER_ID) && 
+                el.mimeType === 'application/vnd.google-apps.folder'
+            );
+
+            // 2. Ordina alfabeticamente le cartelle principali
+            mainFolders.sort((a, b) => a.name.localeCompare(b.name));
+
+            // 3. Genera una colonna per OGNI cartella principale
+            mainFolders.forEach(folder => {
+                const columnDiv = document.createElement('div');
+                columnDiv.classList.add('document-column');
+
+                // Titolo della Colonna (il nome della sottocartella)
+                columnDiv.innerHTML = `<h2>${folder.name}</h2>`;
+
+                // Popola la colonna con i contenuti della cartella (ricorsivamente)
+                renderFileList(folder.id, allElements, columnDiv);
+                
+                columnsContainer.appendChild(columnDiv);
+            });
             
-            // Avvia la costruzione dell'albero HTML a partire dalla cartella radice
-            // La radice dell'albero nel Drive è la cartella con FOLDER_ID
-            renderTree(FOLDER_ID, allElements, fileListElement);
+             if (mainFolders.length === 0) {
+                 columnsContainer.innerHTML = '<p>Nessuna sottocartella trovata sotto la radice.</p>';
+             }
             
         })
         .catch(error => {
             console.error('Errore durante la connessione all\'API:', error);
-            fileListElement.innerHTML = '<li>Impossibile connettersi a Google Drive. Controlla la tua connessione e la chiave API.</li>';
+            columnsContainer.innerHTML = '<p style="color:red;">Impossibile connettersi a Google Drive. Controlla la tua connessione e la chiave API.</p>';
         });
 }
 
-// Avvia la funzione non appena la pagina ha finito di caricare
 document.addEventListener('DOMContentLoaded', listFilesInFolder);
