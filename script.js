@@ -5,16 +5,88 @@
 const FOLDER_ID = '1u3oZ-4XAOGEz5ygGEyb6fQrWnQ17sCjE'; 
 const API_KEY = 'AIzaSyC0sxsoNUPZIUpkqicVSzWXjCQd7D1gqfs'; 
 
-// Array per tenere traccia degli ID dei file PDF attualmente selezionati.
+// Array per tenere traccia degli ID dei file PDF attualmente selezionati, 
+// l'ordine in questo array definisce l'ordine di visualizzazione.
 const selectedFiles = [];
 
 
 // ====================================================================
-// FUNZIONI DI BASE
+// FUNZIONI DI ORDINAMENTO E DRAG & DROP
+// ====================================================================
+
+/**
+ * Aggiorna la lista visiva nella barra di controllo ordine.
+ */
+function updateOrderList() {
+    const orderList = document.getElementById('order-list');
+    orderList.innerHTML = '';
+
+    if (selectedFiles.length === 0) {
+        orderList.innerHTML = '<li>Nessun file selezionato.</li>';
+        return;
+    }
+
+    selectedFiles.forEach(fileData => {
+        const listItem = document.createElement('li');
+        listItem.textContent = fileData.name;
+        listItem.dataset.id = fileData.id;
+        listItem.draggable = true; // Rende l'elemento trascinabile
+        orderList.appendChild(listItem);
+    });
+}
+
+/**
+ * Inizializza la logica di trascinamento (Drag and Drop) sulla lista di ordinamento.
+ */
+function initializeDragAndDrop() {
+    const orderList = document.getElementById('order-list');
+    let draggedItem = null;
+
+    orderList.addEventListener('dragstart', (e) => {
+        if (e.target.tagName === 'LI') {
+            draggedItem = e.target;
+            e.dataTransfer.effectAllowed = 'move';
+            // Aggiunge una classe per l'effetto visivo durante il trascinamento
+            setTimeout(() => e.target.classList.add('dragging'), 0);
+        }
+    });
+
+    orderList.addEventListener('dragover', (e) => {
+        e.preventDefault(); // Necessario per permettere il drop
+        const target = e.target;
+        if (target.tagName === 'LI' && target !== draggedItem) {
+            const rect = target.getBoundingClientRect();
+            const next = (e.clientY - rect.top) / rect.height > 0.5;
+            orderList.insertBefore(draggedItem, next ? target.nextSibling : target);
+        }
+    });
+
+    orderList.addEventListener('dragend', (e) => {
+        e.target.classList.remove('dragging');
+        
+        // Aggiorna l'array selectedFiles in base al nuovo ordine DOM
+        const newOrder = Array.from(orderList.children).map(li => li.dataset.id);
+        
+        // Mappa l'array selectedFiles per mantenere l'oggetto completo
+        const reorderedFiles = newOrder.map(id => selectedFiles.find(f => f.id === id));
+        
+        // Svuota e ripopola l'array globale per riflettere il nuovo ordine
+        selectedFiles.length = 0;
+        selectedFiles.push(...reorderedFiles);
+
+        updateViewer();
+        draggedItem = null;
+    });
+}
+
+
+// ====================================================================
+// FUNZIONI DI BASE 
 // ====================================================================
 
 /**
  * Aggiorna il viewer PDF rimuovendo o aggiungendo l'iframe del file selezionato.
+ * L'ordine è determinato dall'array selectedFiles.
  */
 function updateViewer() {
     const viewerElement = document.getElementById('pdf-viewer');
@@ -44,6 +116,9 @@ function updateViewer() {
         pdfContainer.appendChild(iframe);
         viewerElement.appendChild(pdfContainer);
     });
+    
+    // Ridisegna la lista di ordinamento dopo aver aggiornato il viewer.
+    updateOrderList();
 }
 
 /**
@@ -51,17 +126,21 @@ function updateViewer() {
  */
 function handleFileCheckboxChange(fileId, fileName, isChecked) {
     const fileIndex = selectedFiles.findIndex(f => f.id === fileId);
+    const fileData = { id: fileId, name: fileName };
 
     if (isChecked) {
         if (fileIndex === -1) {
-            selectedFiles.push({ id: fileId, name: fileName });
+            // Aggiunge il nuovo file alla fine
+            selectedFiles.push(fileData);
         }
     } else {
         if (fileIndex > -1) {
+            // Rimuove il file
             selectedFiles.splice(fileIndex, 1);
         }
     }
     
+    // Aggiorna lo stato della checkbox
     const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
     if (fileCheckbox && fileCheckbox.closest('.document-column')) {
         updateColumnCheckboxStatus(fileId);
@@ -71,7 +150,7 @@ function handleFileCheckboxChange(fileId, fileName, isChecked) {
 }
 
 /**
- * Aggiorna lo stato della checkbox della colonna.
+ * Aggiorna lo stato della checkbox della colonna. (funzione lasciata invariata)
  */
 function updateColumnCheckboxStatus(fileId) {
     const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
@@ -99,7 +178,7 @@ function updateColumnCheckboxStatus(fileId) {
 }
 
 /**
- * Seleziona/deseleziona tutte le checkbox sotto una specifica colonna.
+ * Seleziona/deseleziona tutte le checkbox sotto una specifica colonna. (funzione lasciata invariata)
  */
 function handleColumnCheckboxChange(columnId, isChecked) {
     const columnDiv = document.querySelector(`.document-column[data-folder-id="${columnId}"]`);
@@ -125,7 +204,7 @@ function handleColumnCheckboxChange(columnId, isChecked) {
 // ====================================================================
 
 function selectAll(isChecked) {
-    // Gestione colonne
+    // Gestione colonne (seleziona/deseleziona tutto)
     const allColumnCheckboxes = document.querySelectorAll('input[type="checkbox"].column-checkbox');
     allColumnCheckboxes.forEach(columnCheckbox => {
         const columnId = columnCheckbox.id.replace('col-', '');
@@ -134,13 +213,9 @@ function selectAll(isChecked) {
              handleColumnCheckboxChange(columnId, isChecked);
         }
     });
-
-    // Siccome non c'è più la ricerca, gestiamo solo le colonne.
-    // L'array selectedFiles viene azzerato in ogni caso.
     
-    if (!isChecked) {
-        selectedFiles.length = 0;
-    }
+    // Se isChecked è false, l'array selectedFiles è già stato azzerato da handleFileCheckboxChange
+    // Se è true, l'array è riempito in ordine di apparizione nel DOM dalle chiamate precedenti.
 
     updateViewer();
 }
@@ -152,14 +227,13 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI CARICAMENTO DRIVE 
+// FUNZIONI DI CARICAMENTO DRIVE (NON MODIFICATE)
 // ====================================================================
 
 /**
  * Costruisce la lista HTML dei file PDF e cartelle annidate per un dato parentId.
  */
 function renderFolderContents(parentId, targetElement) {
-    // Query che funziona per caricare le cartelle annidate.
     const url = `https://www.googleapis.com/drive/v3/files?q='${parentId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
@@ -236,7 +310,6 @@ function listFilesInFolder() {
     
     columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
-    // Query per trovare le cartelle figlie dirette della FOLDER_ID
     const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
@@ -295,6 +368,6 @@ function listFilesInFolder() {
 document.addEventListener('DOMContentLoaded', () => {
     // Inizializza la vista
     listFilesInFolder();
-    // Non abbiamo più bisogno del setupSearchControls o del reset-button 
-    // perché non c'è la vista di ricerca.
+    // Inizializza la logica di Drag & Drop
+    initializeDragAndDrop();
 });
