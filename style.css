@@ -1,44 +1,194 @@
-/* Stili per la barra di ricerca */
-#ricerca-container {
+/* style.css - DARK MODE & RICERCA */
+
+/* Stile base - Tema Scuro */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #1e1e1e; /* Sfondo scuro */
+    color: #f0f0f0; /* Testo chiaro */
+}
+
+h1, h2, h3 {
+    color: #f0f0f0;
+}
+
+h1 {
+    border-bottom: 2px solid #00aaff; /* Blu acceso */
+    padding-bottom: 10px;
+}
+
+/* Controlli Globali e Ricerca Layout */
+#controlli-ricerca {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+}
+
+#search-container {
     display: flex;
     gap: 10px;
-    margin-bottom: 25px;
-    padding: 15px;
-    background-color: #252526;
-    border-radius: 8px;
-    border: 1px solid #333;
 }
 
-#campo-ricerca {
-    flex-grow: 1;
+#search-input {
     padding: 10px;
-    border: 1px solid #555;
+    border: 1px solid #444;
     border-radius: 4px;
-    background-color: #333;
-    color: #f0f0f0;
-    font-size: 1.1em;
+    background-color: #3e3e42;
+    color: white;
+    width: 300px;
 }
 
-#campo-ricerca::placeholder {
-    color: #999;
-}
-
-#pulsante-ricerca, #pulsante-reset {
+#search-button, #reset-button {
     padding: 10px 15px;
-    background-color: #007bff; /* Blu primario */
+    background-color: #007bff;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s;
-    font-weight: bold;
 }
 
-#pulsante-ricerca:hover, #pulsante-reset:hover {
+#search-button:hover, #reset-button:hover {
     background-color: #00aaff;
 }
 
-/* Stili per i risultati di ricerca */
+#controlli-globali button {
+    padding: 10px 15px;
+    margin-right: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#controlli-globali button:hover {
+    background-color: #00aaff;
+}
+
+/* 1. LAYOUT DELLE COLONNE */
+#colonne-drive {
+    display: flex;
+    gap: 20px;
+    padding: 15px;
+    border: 1px solid #333;
+    background-color: #252526; 
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border-radius: 8px;
+}
+
+/* 2. STILE DELLA SINGOLA COLONNA e Risultati di Ricerca */
+.document-column {
+    min-width: 280px;
+    max-width: 350px;
+    flex-shrink: 0;
+    padding: 10px;
+    background-color: #2d2d30;
+    border-radius: 6px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+}
+
+#search-results {
+    /* Assicura che i risultati di ricerca occupino lo spazio necessario */
+    min-width: 400px;
+    max-width: none;
+}
+
+
+/* Titolo Colonna con Checkbox */
+.column-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 3px solid #00aaff;
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+}
+
+.column-header h2 {
+    font-size: 1.3em;
+    margin: 0;
+    margin-left: 8px; 
+    text-transform: uppercase;
+}
+
+.column-header input[type="checkbox"] {
+    min-width: 20px;
+    min-height: 20px;
+}
+
+
+/* 3. STILE DELLA LISTA e SCROLL */
 .document-column ul {
-    /* Stili esistenti per la lista */
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Stile per i file PDF */
+.document-column li {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 4px;
+    background-color: #3e3e42; 
+    border: 1px solid #444;
+    border-radius: 4px;
+    font-size: 0.9em;
+    white-space: nowrap; 
+    overflow: hidden;
+    text-overflow: ellipsis; 
+}
+
+.document-column li:hover {
+    background-color: #49494e;
+}
+
+.document-column li input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* Stile per le sottocartelle */
+.sub-folder-title {
+    font-size: 0.95em;
+    color: #bbbbbb;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+/* Stile per il visualizzatore PDF */
+#pdf-viewer {
+    border: 1px solid #333;
+    padding: 20px;
+    min-height: 200px;
+    background-color: #252526; 
+    
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px; 
+    border-radius: 8px;
+}
+
+/* Contenitore per ogni singolo PDF con titolo */
+.pdf-document-container {
+    border: 1px solid #444;
+    padding: 10px;
+    background-color: #3e3e42; 
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.pdf-document-container h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #00aaff;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
 }
