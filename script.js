@@ -2,10 +2,7 @@
 // CONFIGURAZIONE
 // ====================================================================
 
-// L'ID della tua cartella madre 'PIC PER SITO'
 const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI'; 
-
-// Chiave API funzionante
 const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI'; 
 
 // Array per tenere traccia degli ID dei file PDF attualmente selezionati.
@@ -18,12 +15,9 @@ const selectedFiles = [];
 
 /**
  * Aggiorna il viewer PDF rimuovendo o aggiungendo l'iframe del file selezionato.
- * Il viewer mostrerà tutti i file presenti nell'array 'selectedFiles'.
  */
 function updateViewer() {
     const viewerElement = document.getElementById('pdf-viewer');
-    
-    // Pulisce l'intero viewer
     viewerElement.innerHTML = '';
     
     if (selectedFiles.length === 0) {
@@ -35,7 +29,6 @@ function updateViewer() {
     selectedFiles.forEach(fileData => {
         const embedUrl = `https://drive.google.com/file/d/${fileData.id}/preview`;
         
-        // Crea un contenitore per ogni PDF con il titolo sopra
         const pdfContainer = document.createElement('div');
         pdfContainer.classList.add('pdf-document-container');
         
@@ -46,7 +39,7 @@ function updateViewer() {
         const iframe = document.createElement('iframe');
         iframe.src = embedUrl;
         iframe.width = "100%";
-        iframe.height = "600px"; // Puoi regolare questa altezza
+        iframe.height = "600px";
         iframe.frameborder = "0";
         
         pdfContainer.appendChild(iframe);
@@ -55,38 +48,124 @@ function updateViewer() {
 }
 
 /**
- * Gestisce la selezione/deselezione di un file PDF.
- * @param {string} fileId - L'ID del file Drive.
- * @param {string} fileName - Il nome del file (per l'intestazione del viewer).
- * @param {boolean} isChecked - Stato della checkbox.
+ * Gestisce la selezione/deselezione di un file PDF e aggiorna l'array selectedFiles.
  */
-function handleCheckboxChange(fileId, fileName, isChecked) {
+function handleFileCheckboxChange(fileId, fileName, isChecked) {
     const fileIndex = selectedFiles.findIndex(f => f.id === fileId);
 
     if (isChecked) {
-        // Aggiunge il file all'array se non è già presente
+        // Aggiunge il file
         if (fileIndex === -1) {
             selectedFiles.push({ id: fileId, name: fileName });
         }
     } else {
-        // Rimuove il file dall'array se presente
+        // Rimuove il file
         if (fileIndex > -1) {
             selectedFiles.splice(fileIndex, 1);
         }
     }
     
+    // Aggiorna lo stato della checkbox principale della colonna
+    updateColumnCheckboxStatus(fileId);
+    
     // Aggiorna la visualizzazione del viewer
     updateViewer();
 }
 
+/**
+ * Aggiorna lo stato della checkbox della colonna in base allo stato dei file sottostanti.
+ */
+function updateColumnCheckboxStatus(fileId) {
+    // Risale all'ID della colonna (che è l'ID della cartella principale)
+    const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
+    if (!fileCheckbox) return;
+    
+    const columnDiv = fileCheckbox.closest('.document-column');
+    if (!columnDiv) return;
+
+    const columnId = columnDiv.dataset.folderId;
+    const columnCheckbox = document.getElementById(`col-${columnId}`);
+    
+    const allFiles = columnDiv.querySelectorAll('input[type="checkbox"]:not(.column-checkbox)');
+    const checkedFiles = columnDiv.querySelectorAll('input[type="checkbox"]:checked:not(.column-checkbox)');
+
+    if (checkedFiles.length === allFiles.length) {
+        columnCheckbox.checked = true;
+        columnCheckbox.indeterminate = false;
+    } else if (checkedFiles.length > 0) {
+        columnCheckbox.checked = false;
+        columnCheckbox.indeterminate = true;
+    } else {
+        columnCheckbox.checked = false;
+        columnCheckbox.indeterminate = false;
+    }
+}
+
+/**
+ * Seleziona/deseleziona tutte le checkbox sotto una specifica colonna.
+ */
+function handleColumnCheckboxChange(columnId, isChecked) {
+    const columnDiv = document.querySelector(`.document-column[data-folder-id="${columnId}"]`);
+    if (!columnDiv) return;
+
+    const fileCheckboxes = columnDiv.querySelectorAll('input[type="checkbox"]:not(.column-checkbox)');
+    
+    fileCheckboxes.forEach(checkbox => {
+        // Simula il click solo se lo stato deve cambiare
+        if (checkbox.checked !== isChecked) {
+            checkbox.checked = isChecked;
+            // Richiama la funzione di gestione del file per aggiornare selectedFiles e Viewer
+            handleFileCheckboxChange(checkbox.id.replace('pdf-file-', ''), checkbox.name, isChecked);
+        }
+    });
+
+    // Rimuove lo stato di indeterminazione
+    const columnCheckbox = document.getElementById(`col-${columnId}`);
+    if (columnCheckbox) {
+        columnCheckbox.indeterminate = false;
+    }
+}
+
+
+// ====================================================================
+// GESTIONE CONTROLLI GLOBALI
+// ====================================================================
+
+function selectAll(isChecked) {
+    const allCheckboxes = document.querySelectorAll('input[type="checkbox"].column-checkbox');
+    
+    allCheckboxes.forEach(columnCheckbox => {
+        // Prende l'ID della cartella genitore
+        const columnId = columnCheckbox.id.replace('col-', '');
+        
+        // Simula la selezione/deselezione della checkbox di colonna
+        if (columnCheckbox.checked !== isChecked) {
+             columnCheckbox.checked = isChecked;
+             handleColumnCheckboxChange(columnId, isChecked);
+        }
+    });
+    
+    // Aggiorna il viewer alla fine
+    updateViewer();
+}
+
+/**
+ * Inizializza gli event listener per i bottoni Seleziona/Deseleziona Tutto.
+ */
+function setupGlobalControls() {
+    document.getElementById('seleziona-tutto').addEventListener('click', () => selectAll(true));
+    document.getElementById('deseleziona-tutto').addEventListener('click', () => selectAll(false));
+}
+
+
+// ====================================================================
+// FUNZIONI DI CARICAMENTO DRIVE
+// ====================================================================
 
 /**
  * Costruisce la lista HTML dei file PDF e cartelle annidate per un dato parentId.
- * @param {string} parentId - L'ID della cartella genitore.
- * @param {HTMLElement} targetElement - L'elemento in cui iniettare la lista.
  */
 function renderFolderContents(parentId, targetElement) {
-    // QUERY DETTAGLIO: Cerca i PDF e le sottocartelle dirette sotto parentId.
     const url = `https://www.googleapis.com/drive/v3/files?q='${parentId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
@@ -99,7 +178,6 @@ function renderFolderContents(parentId, targetElement) {
             
             const children = data.files || [];
             
-            // Ordina: Cartelle prime, poi File, in ordine alfabetico
             children.sort((a, b) => {
                 const isFolderA = a.mimeType === 'application/vnd.google-apps.folder';
                 const isFolderB = b.mimeType === 'application/vnd.google-apps.folder';
@@ -117,40 +195,41 @@ function renderFolderContents(parentId, targetElement) {
                 const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
                 
                 if (!isFolder) {
-                    // È un file PDF
                     if (item.mimeType === 'application/pdf') {
-                        // 1. Crea la checkbox
+                        // 1. Checkbox per il singolo file
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
-                        checkbox.id = `pdf-${item.id}`;
+                        checkbox.id = `pdf-file-${item.id}`; // ID UNICO
                         checkbox.name = item.name;
                         
-                        // 2. Aggiunge l'handler per la selezione
-                        checkbox.onchange = (e) => handleCheckboxChange(item.id, item.name, e.target.checked);
+                        // 2. Handler per la selezione
+                        checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
 
-                        // 3. Crea la label per il testo del file
                         const label = document.createElement('label');
-                        label.htmlFor = `pdf-${item.id}`;
+                        label.htmlFor = `pdf-file-${item.id}`;
                         label.textContent = item.name;
 
-                        // 4. Aggiunge tutto alla lista
                         li.appendChild(checkbox);
                         li.appendChild(label);
                         ul.appendChild(li);
                     }
                 } else {
-                    // È una sottocartella annidata
                     li.innerHTML = `<strong>${item.name}</strong>`;
                     li.classList.add('sub-folder-title');
                     ul.appendChild(li);
                     
-                    // Chiama ricorsivamente per annidare i contenuti
                     renderFolderContents(item.id, li);
                 }
             });
             
             if (ul.children.length > 0) {
                 targetElement.appendChild(ul);
+            }
+            
+            // Aggiorna lo stato iniziale dopo il caricamento
+            const mainColumnDiv = targetElement.closest('.document-column');
+            if(mainColumnDiv) {
+                 updateColumnCheckboxStatus(mainColumnDiv.dataset.folderId);
             }
         })
         .catch(error => {
@@ -159,15 +238,10 @@ function renderFolderContents(parentId, targetElement) {
 }
 
 
-// ====================================================================
-// FUNZIONE PRINCIPALE: RECUPERO DATI API E COSTRUZIONE COLONNE
-// ====================================================================
-
 function listFilesInFolder() {
     const columnsContainer = document.getElementById('colonne-drive');
     columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
-    // PRIMA QUERY: Cerca solo le sottocartelle principali (Livello 1)
     const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
@@ -179,20 +253,33 @@ function listFilesInFolder() {
                 return;
             }
             
-            columnsContainer.innerHTML = ''; // Pulisce il messaggio di caricamento
-            
+            columnsContainer.innerHTML = '';
             const mainFolders = data.files || [];
             
-            // Ordina alfabeticamente le cartelle principali
             mainFolders.sort((a, b) => a.name.localeCompare(b.name));
 
-            // Genera una colonna per OGNI cartella principale
             mainFolders.forEach(folder => {
                 const columnDiv = document.createElement('div');
                 columnDiv.classList.add('document-column');
+                columnDiv.dataset.folderId = folder.id; // Aggiunge l'ID della cartella come data-attributo
 
-                // Titolo della Colonna
-                columnDiv.innerHTML = `<h2>${folder.name}</h2>`;
+                // NUOVO: Checkbox per la Colonna
+                const colCheckbox = document.createElement('input');
+                colCheckbox.type = 'checkbox';
+                colCheckbox.id = `col-${folder.id}`;
+                colCheckbox.classList.add('column-checkbox');
+                colCheckbox.onchange = (e) => handleColumnCheckboxChange(folder.id, e.target.checked);
+
+                const titleHeader = document.createElement('h2');
+                titleHeader.textContent = folder.name;
+                
+                // Contenitore per checkbox e titolo
+                const headerContainer = document.createElement('div');
+                headerContainer.classList.add('column-header');
+                headerContainer.appendChild(colCheckbox);
+                headerContainer.appendChild(titleHeader);
+
+                columnDiv.appendChild(headerContainer);
 
                 // Popola la colonna chiamando la funzione di ricerca ricorsiva
                 renderFolderContents(folder.id, columnDiv);
@@ -204,7 +291,8 @@ function listFilesInFolder() {
                  columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
              }
              
-             // Inizializza il viewer
+             // Inizializza i bottoni di controllo globali
+             setupGlobalControls();
              updateViewer();
         }) 
         .catch(error => { 
