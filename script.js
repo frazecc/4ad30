@@ -166,7 +166,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO (CORRETTA)
+// FUNZIONI DI RICERCA CONTENUTO (ULTERIORMENTE MODIFICATA)
 // ====================================================================
 
 /**
@@ -186,13 +186,16 @@ function searchPdfContent() {
     
     const encodedQuery = encodeURIComponent(query);
     
-    // ✅ CORREZIONE: Rimosso 'and ${FOLDER_ID}' in parents' per consentire la ricerca nelle sottocartelle.
-    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    // 💥 ULTIMO TENTATIVO CON API KEY PUBBLICA: 
+    // Cerchiamo tutti i PDF che contengono il testo E sono stati condivisi esplicitamente con l'utente (pubblici).
+    // Questo è il modo più robusto per evitare il 403 e trovare anche i file annidati.
+    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and 'sharedWithMe'&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.error) {
+                // Riproponiamo l'errore per il debug
                 columnsContainer.innerHTML = `<p style="color:red;">Errore API Ricerca: ${data.error.message}.</p>`;
                 console.error('Search API Error:', data.error);
                 return;
