@@ -10,8 +10,27 @@
     <script src="script.js" defer></script>
 
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        #drive-controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        /* TEMA SCURO */
+        body { 
+            font-family: sans-serif; 
+            margin: 20px; 
+            background-color: #1e1e1e; /* Sfondo scuro */
+            color: #d4d4d4; /* Testo chiaro */
+        }
+        h1, h2, h3 {
+            color: #ffffff; /* Titoli bianchi */
+        }
+        hr {
+            border-top: 1px solid #444;
+        }
+
+        /* CONTROLLI E STRUTTURA */
+        #drive-controls { 
+            margin-bottom: 20px; 
+            display: flex; 
+            gap: 10px; 
+            align-items: center; 
+        }
         #colonne-drive { 
             display: flex; 
             flex-wrap: nowrap; 
@@ -19,25 +38,86 @@
             gap: 20px; 
             padding-bottom: 10px; 
             margin-bottom: 20px;
-            border: 1px solid #ccc;
+            border: 1px solid #444; /* Bordo scuro */
             padding: 15px;
         }
         .document-column { 
             flex-shrink: 0; 
             width: 300px; 
-            border: 1px solid #eee; 
+            border: 1px solid #333; /* Bordo scuro colonna */
             padding: 10px; 
-            background-color: #f9f9f9;
+            background-color: #2d2d30; /* Sfondo colonna leggermente più chiaro */
         }
-        .column-header { display: flex; align-items: center; margin-bottom: 10px; }
-        .column-header h2 { margin: 0 0 0 5px; font-size: 1.2em; }
-        .document-column ul { list-style: none; padding: 0; }
-        .document-column li { margin-bottom: 5px; font-size: 0.9em; }
-        .sub-folder-title { margin-top: 10px; font-size: 1em; color: #555; }
-        #pdf-viewer { margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; }
-        .pdf-document-container { margin-bottom: 30px; border: 1px solid #ccc; padding: 10px; }
-        .pdf-document-container h3 { margin-top: 0; font-size: 1.1em; color: #333; }
-        iframe { border: none; }
+        .column-header { 
+            display: flex; 
+            align-items: center; 
+            margin-bottom: 10px; 
+        }
+        .column-header h2 { 
+            margin: 0 0 0 5px; 
+            font-size: 1.2em; 
+        }
+        .document-column ul { 
+            list-style: none; 
+            padding: 0; 
+        }
+        .document-column li { 
+            margin-bottom: 5px; 
+            font-size: 0.9em; 
+        }
+        .sub-folder-title { 
+            margin-top: 10px; 
+            font-size: 1em; 
+            color: #888; /* Colore grigio scuro per titoli sottocartelle */
+        }
+
+        /* BARRA DI ORDINAMENTO */
+        #order-control {
+            margin: 30px 0;
+            padding: 15px;
+            background-color: #2d2d30;
+            border: 1px solid #444;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        #order-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #order-list li {
+            background-color: #3e3e40;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: move; /* Indica che l'elemento è trascinabile */
+            user-select: none;
+            font-size: 0.9em;
+        }
+
+        /* VIEWER */
+        #pdf-viewer { 
+            margin-top: 30px; 
+            border-top: 2px solid #444; 
+            padding-top: 20px; 
+        }
+        .pdf-document-container { 
+            margin-bottom: 30px; 
+            border: 1px solid #444; 
+            padding: 10px; 
+            background-color: #252526;
+        }
+        .pdf-document-container h3 { 
+            margin-top: 0; 
+            font-size: 1.1em; 
+            color: #ffffff; 
+        }
+        iframe { 
+            border: none; 
+        }
     </style>
 </head>
 <body>
@@ -55,6 +135,13 @@
         <p>Caricamento in corso...</p>
     </div>
 
+    <div id="order-control">
+        <strong>Ordine visualizzazione PDF (Trascina per riordinare):</strong>
+        <ul id="order-list">
+            <li>Nessun file selezionato.</li>
+        </ul>
+    </div>
+    
     <hr>
 
     <div id="pdf-viewer">
