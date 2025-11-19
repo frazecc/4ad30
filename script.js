@@ -10,7 +10,7 @@ const selectedFiles = [];
 
 
 // ====================================================================
-// FUNZIONI DI BASE (Aggiornate)
+// FUNZIONI DI BASE
 // ====================================================================
 
 /**
@@ -72,7 +72,9 @@ function handleFileCheckboxChange(fileId, fileName, isChecked) {
     updateViewer();
 }
 
-// Logica per le checkbox di colonna (non modificata)
+/**
+ * Aggiorna lo stato della checkbox della colonna in base allo stato dei file sottostanti.
+ */
 function updateColumnCheckboxStatus(fileId) {
     const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
     if (!fileCheckbox) return;
@@ -98,6 +100,9 @@ function updateColumnCheckboxStatus(fileId) {
     }
 }
 
+/**
+ * Seleziona/deseleziona tutte le checkbox sotto una specifica colonna.
+ */
 function handleColumnCheckboxChange(columnId, isChecked) {
     const columnDiv = document.querySelector(`.document-column[data-folder-id="${columnId}"]`);
     if (!columnDiv) return;
@@ -122,8 +127,13 @@ function handleColumnCheckboxChange(columnId, isChecked) {
 // GESTIONE CONTROLLI GLOBALI
 // ====================================================================
 
+/**
+ * Seleziona/Deseleziona tutti i file visibili nella vista corrente.
+ */
 function selectAll(isChecked) {
-    // 1. Deseleziona/seleziona i file nell'area colonne
+    // Gestisce sia l'area colonne che l'area risultati di ricerca
+    
+    // 1. Deseleziona/seleziona i file nell'area colonne (se visibile)
     const allColumnCheckboxes = document.querySelectorAll('input[type="checkbox"].column-checkbox');
     allColumnCheckboxes.forEach(columnCheckbox => {
         const columnId = columnCheckbox.id.replace('col-', '');
@@ -150,6 +160,9 @@ function selectAll(isChecked) {
     updateViewer();
 }
 
+/**
+ * Inizializza gli event listener per i bottoni Seleziona/Deseleziona Tutto.
+ */
 function setupGlobalControls() {
     document.getElementById('seleziona-tutto').addEventListener('click', () => selectAll(true));
     document.getElementById('deseleziona-tutto').addEventListener('click', () => selectAll(false));
@@ -157,7 +170,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO (NUOVE)
+// FUNZIONI DI RICERCA CONTENUTO
 // ====================================================================
 
 /**
@@ -176,8 +189,6 @@ function searchPdfContent() {
     columnsContainer.innerHTML = `<p>Ricerca di "${query}" in corso...</p>`;
     
     // Query API per cercare il testo ('fullText') SOLO nei PDF e SOLO nella cartella principale (e sottocartelle)
-    // Non è possibile usare il FOLDER_ID in modo ricorsivo nel fullText,
-    // quindi cerchiamo solo i PDF in generale e speriamo che siano nel progetto.
     const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${query}' and mimeType='application/pdf' and trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
@@ -224,7 +235,7 @@ function renderSearchResults(results, containerElement, query) {
     results.forEach(item => {
         const li = document.createElement('li');
         
-        // 1. Crea la checkbox (riutilizza l'ID e il gestore)
+        // Crea la checkbox
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `pdf-file-${item.id}`; 
@@ -234,7 +245,7 @@ function renderSearchResults(results, containerElement, query) {
         const isSelected = selectedFiles.some(f => f.id === item.id);
         checkbox.checked = isSelected;
         
-        // 2. Aggiunge l'handler per la selezione (lo stesso usato per le colonne)
+        // Aggiunge l'handler per la selezione
         checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
 
         const label = document.createElement('label');
@@ -285,7 +296,7 @@ function setupSearchControls() {
 
 
 // ====================================================================
-// FUNZIONI DI CARICAMENTO DRIVE (Non modificate nella logica)
+// FUNZIONI DI CARICAMENTO DRIVE
 // ====================================================================
 
 /**
@@ -327,7 +338,6 @@ function renderFolderContents(parentId, targetElement) {
                         checkbox.id = `pdf-file-${item.id}`; 
                         checkbox.name = item.name;
                         
-                        // Mantiene lo stato di selezione del file
                         checkbox.checked = selectedFiles.some(f => f.id === item.id);
                         
                         checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
@@ -366,8 +376,9 @@ function renderFolderContents(parentId, targetElement) {
 
 function listFilesInFolder() {
     const columnsContainer = document.getElementById('colonne-drive');
-    // Nasconde i pulsanti di ricerca se non siamo in modalità ricerca
-    toggleSearchView(false); 
+    
+    // 🛑 RIGA RIMOSSA: Non chiamiamo più toggleSearchView(false) qui per evitare il loop
+    
     columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
     const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
@@ -426,4 +437,9 @@ function listFilesInFolder() {
         }); 
 } 
 
-document.addEventListener('DOMContentLoaded', listFilesInFolder);
+document.addEventListener('DOMContentLoaded', () => {
+    // Inizializza la vista
+    listFilesInFolder();
+    // Nasconde i pulsanti di reset all'avvio
+    document.getElementById('reset-button').style.display = 'none'; 
+});
