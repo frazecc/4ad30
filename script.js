@@ -5,7 +5,7 @@
 // L'ID della tua cartella madre 'PIC PER SITO'
 const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI'; 
 
-// NUOVA Chiave API fornita
+// Chiave API funzionante
 const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI'; 
 
 
@@ -26,11 +26,56 @@ function displayPdf(fileId) {
 
 
 /**
- * NOTA BENE: Questa funzione è stata disabilitata per il test di connettività.
- * Non esegue la ricorsione ed è usata solo per la logica di test in listFilesInFolder.
+ * Costruisce la lista HTML dei file PDF per una data cartella (ricorsiva).
+ * @param {string} parentId - L'ID della cartella da elaborare.
+ * @param {Array<Object>} elements - Tutti i file e le cartelle recuperati dall'API.
+ * @param {HTMLElement} targetElement - L'elemento HTML in cui iniettare la lista (la colonna div o la <li> della sottocartella).
  */
 function renderFileList(parentId, elements, targetElement) {
-    // Non implementata per questo test
+    // Trova solo i PDF e le eventuali sottocartelle che sono figli diretti di parentId
+    const children = elements.filter(el => 
+        el.parents && el.parents.includes(parentId) && 
+        (el.mimeType === 'application/pdf' || el.mimeType === 'application/vnd.google-apps.folder')
+    );
+    
+    // Ordina: Cartelle prime, poi File, in ordine alfabetico
+    children.sort((a, b) => {
+        const isFolderA = a.mimeType === 'application/vnd.google-apps.folder';
+        const isFolderB = b.mimeType === 'application/vnd.google-apps.folder';
+
+        if (isFolderA && !isFolderB) return -1;
+        if (!isFolderA && isFolderB) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    const ul = document.createElement('ul'); 
+    
+    children.forEach(item => {
+        const li = document.createElement('li');
+        
+        const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
+        
+        if (!isFolder) {
+            // È un file PDF
+            li.textContent = item.name;
+            li.classList.add('document-link');
+            li.onclick = () => displayPdf(item.id);
+            ul.appendChild(li); 
+        } else {
+            // È una sottocartella (annidata)
+            li.innerHTML = `<strong>${item.name}</strong>`;
+            li.classList.add('sub-folder-title');
+            ul.appendChild(li); 
+
+            // Chiama la ricorsione: attacca la lista dei contenuti alla <li> corrente
+            renderFileList(item.id, elements, li); 
+        }
+    });
+    
+    // Attacca la lista <ul> al targetElement (la colonna o la <li> genitore)
+    if (ul.children.length > 0) {
+        targetElement.appendChild(ul);
+    }
 }
 
 
@@ -40,26 +85,51 @@ function renderFileList(parentId, elements, targetElement) {
 
 function listFilesInFolder() {
     const columnsContainer = document.getElementById('colonne-drive');
-    columnsContainer.innerHTML = '<p>Test di connessione in corso: cerco solo i file PDF sotto la radice...</p>';
+    columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
-    // 🛑 TEST DI CONNESSIONE: Query SEMPLIFICATA per cercare SOLO i PDF figli diretti (senza cartelle)
-    const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType='application/pdf'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    // 🌐 QUERY COMPLETA: Recupera tutti i file e cartelle non cestinati che sono figli diretti della cartella radice,
+    // o cartelle in generale (per permettere la ricorsione).
+    const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+or+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                // Se c'è ancora un errore 403, il problema è solo l'API Key/permessi Drive.
-                columnsContainer.innerHTML = `<p style="color:red; font-weight: bold;">TEST FALLITO (403): Errore API: ${data.error.message}. La chiave API è bloccata.</p>`;
-                console.error('API Error (Test):', data.error);
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API: ${data.error.message}. Controlla i permessi di Drive.</p>`;
+                console.error('API Error:', data.error);
                 return;
             }
             
-            // Se arriviamo qui, la connessione API FUNZIONA!
-            columnsContainer.innerHTML = `<p style="color: green; font-weight: bold;">TEST SUPERATO: Connessione API riuscita. Trovati ${data.files.length} file PDF figli diretti.</p>`;
+            columnsContainer.innerHTML = ''; // Pulisce il messaggio di caricamento
             
-            // QUI DEVE ESSERE INSERITO IL CODICE COMPLETO PER RENDERIZZARE LE COLONNE
+            const allElements = data.files || [];
+            
+            // 1. Identifica le SOTTOCARTELLE PRINCIPALI (quelle sotto FOLDER_ID)
+            const mainFolders = allElements.filter(el => 
+                el.parents && el.parents.includes(FOLDER_ID) && 
+                el.mimeType === 'application/vnd.google-apps.folder'
+            );
 
+            // 2. Ordina alfabeticamente le cartelle principali
+            mainFolders.sort((a, b) => a.name.localeCompare(b.name));
+
+            // 3. Genera una colonna per OGNI cartella principale
+            mainFolders.forEach(folder => {
+                const columnDiv = document.createElement('div');
+                columnDiv.classList.add('document-column');
+
+                // Titolo della Colonna
+                columnDiv.innerHTML = `<h2>${folder.name}</h2>`;
+
+                // Popola la colonna con i contenuti della cartella (ricorsivamente)
+                renderFileList(folder.id, allElements, columnDiv);
+                
+                columnsContainer.appendChild(columnDiv);
+            });
+            
+             if (mainFolders.length === 0) {
+                 columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
+             }
         }) 
         .catch(error => { 
             console.error('Errore durante la connessione all\'API:', error);
