@@ -8,37 +8,75 @@ const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI';
 // Chiave API funzionante
 const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI'; 
 
+// Array per tenere traccia degli ID dei file PDF attualmente selezionati.
+const selectedFiles = [];
+
 
 // ====================================================================
-// FUNZIONI DI BASE PER LA VISUALIZZAZIONE E IL FILTRO
+// FUNZIONI DI BASE
 // ====================================================================
 
 /**
- * Aggiorna il visualizzatore PDF mostrando il primo file selezionato.
- * Il viewer di Google Drive supporta tipicamente un solo embed alla volta.
+ * Aggiorna il viewer PDF rimuovendo o aggiungendo l'iframe del file selezionato.
+ * Il viewer mostrerà tutti i file presenti nell'array 'selectedFiles'.
  */
 function updateViewer() {
-    // Trova tutte le checkbox selezionate nell'intera pagina
-    const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked');
     const viewerElement = document.getElementById('pdf-viewer');
     
-    if (selectedCheckboxes.length > 0) {
-        // Prendiamo l'ID del primo file selezionato
-        const firstFileId = selectedCheckboxes[0].value;
-        const embedUrl = `https://drive.google.com/file/d/${firstFileId}/preview`;
-        
-        // Visualizza il PDF selezionato
-        viewerElement.innerHTML = `<iframe src="${embedUrl}" width="100%" height="600px" frameborder="0"></iframe>`;
-
-        // Se ci sono più di un file selezionato, potresti voler mostrare un messaggio
-        if (selectedCheckboxes.length > 1) {
-             // Opzionale: puoi aggiungere qui un messaggio per informare l'utente
-        }
-        
-    } else {
-        // Nessun file selezionato, pulisci il visualizzatore
-        viewerElement.innerHTML = '<p>Seleziona un file PDF dalle colonne per visualizzarlo.</p>';
+    // Pulisce l'intero viewer
+    viewerElement.innerHTML = '';
+    
+    if (selectedFiles.length === 0) {
+        viewerElement.innerHTML = '<p>Seleziona uno o più file PDF per visualizzarli qui.</p>';
+        return;
     }
+
+    // Aggiunge un iframe per ogni file selezionato
+    selectedFiles.forEach(fileData => {
+        const embedUrl = `https://drive.google.com/file/d/${fileData.id}/preview`;
+        
+        // Crea un contenitore per ogni PDF con il titolo sopra
+        const pdfContainer = document.createElement('div');
+        pdfContainer.classList.add('pdf-document-container');
+        
+        const titleHeader = document.createElement('h3');
+        titleHeader.textContent = fileData.name;
+        pdfContainer.appendChild(titleHeader);
+        
+        const iframe = document.createElement('iframe');
+        iframe.src = embedUrl;
+        iframe.width = "100%";
+        iframe.height = "600px"; // Puoi regolare questa altezza
+        iframe.frameborder = "0";
+        
+        pdfContainer.appendChild(iframe);
+        viewerElement.appendChild(pdfContainer);
+    });
+}
+
+/**
+ * Gestisce la selezione/deselezione di un file PDF.
+ * @param {string} fileId - L'ID del file Drive.
+ * @param {string} fileName - Il nome del file (per l'intestazione del viewer).
+ * @param {boolean} isChecked - Stato della checkbox.
+ */
+function handleCheckboxChange(fileId, fileName, isChecked) {
+    const fileIndex = selectedFiles.findIndex(f => f.id === fileId);
+
+    if (isChecked) {
+        // Aggiunge il file all'array se non è già presente
+        if (fileIndex === -1) {
+            selectedFiles.push({ id: fileId, name: fileName });
+        }
+    } else {
+        // Rimuove il file dall'array se presente
+        if (fileIndex > -1) {
+            selectedFiles.splice(fileIndex, 1);
+        }
+    }
+    
+    // Aggiorna la visualizzazione del viewer
+    updateViewer();
 }
 
 
@@ -48,7 +86,7 @@ function updateViewer() {
  * @param {HTMLElement} targetElement - L'elemento in cui iniettare la lista.
  */
 function renderFolderContents(parentId, targetElement) {
-    // 🌐 QUERY DETTAGLIO: Cerca i PDF e le sottocartelle dirette sotto parentId.
+    // QUERY DETTAGLIO: Cerca i PDF e le sottocartelle dirette sotto parentId.
     const url = `https://www.googleapis.com/drive/v3/files?q='${parentId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
@@ -81,25 +119,23 @@ function renderFolderContents(parentId, targetElement) {
                 if (!isFolder) {
                     // È un file PDF
                     if (item.mimeType === 'application/pdf') {
-                        
-                        // Crea la casella di controllo
+                        // 1. Crea la checkbox
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
-                        checkbox.value = item.id; // L'ID del file è il valore della checkbox
                         checkbox.id = `pdf-${item.id}`;
+                        checkbox.name = item.name;
                         
-                        // Assegna la funzione di aggiornamento al cambio di stato
-                        checkbox.onchange = updateViewer;
-                        
-                        // Crea l'etichetta per il nome del file
+                        // 2. Aggiunge l'handler per la selezione
+                        checkbox.onchange = (e) => handleCheckboxChange(item.id, item.name, e.target.checked);
+
+                        // 3. Crea la label per il testo del file
                         const label = document.createElement('label');
-                        label.htmlFor = checkbox.id;
+                        label.htmlFor = `pdf-${item.id}`;
                         label.textContent = item.name;
-                        
-                        // Aggiungi checkbox e label al list item
+
+                        // 4. Aggiunge tutto alla lista
                         li.appendChild(checkbox);
                         li.appendChild(label);
-                        
                         ul.appendChild(li);
                     }
                 } else {
@@ -129,9 +165,9 @@ function renderFolderContents(parentId, targetElement) {
 
 function listFilesInFolder() {
     const columnsContainer = document.getElementById('colonne-drive');
-    columnsContainer.innerHTML = '<p>Caricamento struttura Drive: ricerca colonne...</p>';
+    columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
-    // 🌐 PRIMA QUERY: Cerca solo le sottocartelle principali (Livello 1)
+    // PRIMA QUERY: Cerca solo le sottocartelle principali (Livello 1)
     const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
@@ -168,7 +204,7 @@ function listFilesInFolder() {
                  columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
              }
              
-             // Inizializza il visualizzatore alla fine del caricamento
+             // Inizializza il viewer
              updateViewer();
         }) 
         .catch(error => { 
