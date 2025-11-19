@@ -1,12 +1,12 @@
 // ====================================================================
-// CONFIGURAZIONE (DATI FORNITI DAL'UTENTE)
+// CONFIGURAZIONE (DATI FORNITI DALL'UTENTE)
 // ====================================================================
 
 // L'ID della tua cartella madre 'PIC PER SITO'
 const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI'; 
 
-// Chiave API fornita
-const API_KEY = 'AIzaSyBPO2PX97SpA_2XqXjv-iR_Hjxr-RY7v7I'; 
+// NUOVA Chiave API fornita
+const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI'; 
 
 
 // ====================================================================
@@ -65,15 +65,14 @@ function renderFileList(parentId, elements, targetElement) {
             // È una sottocartella (annidata)
             li.innerHTML = `<strong>${item.name}</strong>`;
             li.classList.add('sub-folder-title');
-            ul.appendChild(li); // Aggiunge il titolo della sottocartella
+            ul.appendChild(li); 
 
             // Chiama la ricorsione: attacca la lista dei contenuti alla <li> corrente
-            // Questo crea una lista annidata all'interno della lista principale.
             renderFileList(item.id, elements, li); 
         }
     });
     
-    // AGGIORNAMENTO CRUCIALE: Attacca la lista <ul> al targetElement (la colonna o la <li> genitore)
+    // Attacca la lista <ul> al targetElement (la colonna o la <li> genitore)
     if (ul.children.length > 0) {
         targetElement.appendChild(ul);
     }
@@ -89,14 +88,14 @@ function listFilesInFolder() {
     columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
     
     // Query API che recupera tutti i file e cartelle non cestinati che sono figli diretti della cartella radice,
-    // o cartelle in generale (per coprire le sottocartelle)
+    // o cartelle in generale.
     const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+or+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                columnsContainer.innerHTML = `<p style="color:red;">Errore API: ${data.error.message}. Controlla la chiave API o i permessi di Drive.</p>`;
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API: ${data.error.message}. Controlla i permessi di Drive.</p>`;
                 console.error('API Error:', data.error);
                 return;
             }
@@ -131,12 +130,3 @@ function listFilesInFolder() {
              if (mainFolders.length === 0) {
                  columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
              }
-            
-        })
-        .catch(error => {
-            console.error('Errore durante la connessione all\'API:', error);
-            columnsContainer.innerHTML = '<p style="color:red;">Impossibile connettersi a Google Drive. Controlla la tua connessione e la chiave API.</p>';
-        });
-}
-
-document.addEventListener('DOMContentLoaded', listFilesInFolder);
