@@ -6,7 +6,7 @@
 const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI'; 
 
 // 🛑 IMPORTANTE: SOSTITUISCI CON LA TUA CHIAVE API REALE
-const API_KEY = AIzaSyBPO2PX97SpA_2XqXjv-iR_Hjxr-RY7v7I; 
+const API_KEY = 'AIzaSyBPO2PX97SpA_2XqXjv-iR_Hjxr-RY7v7I'; 
 
 
 // ====================================================================
