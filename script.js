@@ -166,7 +166,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO (ULTERIORMENTE MODIFICATA)
+// FUNZIONI DI RICERCA CONTENUTO (CORRETTA)
 // ====================================================================
 
 /**
@@ -186,10 +186,9 @@ function searchPdfContent() {
     
     const encodedQuery = encodeURIComponent(query);
     
-    // 💥 ULTIMO TENTATIVO CON API KEY PUBBLICA: 
-    // Cerchiamo tutti i PDF che contengono il testo E sono stati condivisi esplicitamente con l'utente (pubblici).
-    // Questo è il modo più robusto per evitare il 403 e trovare anche i file annidati.
-    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and 'sharedWithMe'&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    // ✅ CORREZIONE: Sintassi ripristinata e pulita. Rimosso 'sharedWithMe' che causava Invalid Value.
+    // Confidiamo che i filtri mimeType e fullText bastino sui file pubblici.
+    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
