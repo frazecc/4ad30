@@ -1,94 +1,142 @@
-/* style.css */
+// ====================================================================
+// CONFIGURAZIONE (DATI FORNITI DALL'UTENTE)
+// ====================================================================
 
-/* Stile base */
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
+// L'ID della tua cartella madre 'PIC PER SITO'
+const FOLDER_ID = '1mIa9ygyRsmvQyu_ciaIBBL41rmX4j9NI'; 
+
+// Chiave API fornita
+const API_KEY = 'AIzaSyBPO2PX97SpA_2XqXjv-iR_Hjxr-RY7v7I'; 
+
+
+// ====================================================================
+// FUNZIONI DI BASE
+// ====================================================================
+
+/**
+ * Visualizza il PDF selezionato nel div 'pdf-viewer' usando l'embed di Google Drive.
+ * @param {string} fileId - L'ID univoco del file PDF su Google Drive.
+ */
+function displayPdf(fileId) {
+    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+    
+    const viewerElement = document.getElementById('pdf-viewer');
+    viewerElement.innerHTML = `<iframe src="${embedUrl}" width="100%" height="600px" frameborder="0"></iframe>`;
 }
 
-h1 {
-    color: #333;
-    border-bottom: 2px solid #007bff;
-    padding-bottom: 10px;
+
+/**
+ * Costruisce la lista HTML dei file PDF per una data cartella (ricorsiva).
+ * @param {string} parentId - L'ID della cartella da elaborare.
+ * @param {Array<Object>} elements - Tutti i file e le cartelle recuperati dall'API.
+ * @param {HTMLElement} targetElement - L'elemento HTML in cui iniettare la lista (la colonna div o la <li> della sottocartella).
+ */
+function renderFileList(parentId, elements, targetElement) {
+    // Trova solo i PDF e le eventuali sottocartelle che sono figli diretti di parentId
+    const children = elements.filter(el => 
+        el.parents && el.parents.includes(parentId) && 
+        (el.mimeType === 'application/pdf' || el.mimeType === 'application/vnd.google-apps.folder')
+    );
+    
+    // Ordina: Cartelle prime, poi File, in ordine alfabetico
+    children.sort((a, b) => {
+        const isFolderA = a.mimeType === 'application/vnd.google-apps.folder';
+        const isFolderB = b.mimeType === 'application/vnd.google-apps.folder';
+
+        if (isFolderA && !isFolderB) return -1;
+        if (!isFolderA && isFolderB) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    const ul = document.createElement('ul'); 
+    
+    children.forEach(item => {
+        const li = document.createElement('li');
+        
+        const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
+        
+        if (!isFolder) {
+            // È un file PDF
+            li.textContent = item.name;
+            li.classList.add('document-link');
+            li.onclick = () => displayPdf(item.id);
+            ul.appendChild(li); 
+        } else {
+            // È una sottocartella (annidata)
+            li.innerHTML = `<strong>${item.name}</strong>`;
+            li.classList.add('sub-folder-title');
+            ul.appendChild(li); // Aggiunge il titolo della sottocartella
+
+            // Chiama la ricorsione: attacca la lista dei contenuti alla <li> corrente
+            // Questo crea una lista annidata all'interno della lista principale.
+            renderFileList(item.id, elements, li); 
+        }
+    });
+    
+    // AGGIORNAMENTO CRUCIALE: Attacca la lista <ul> al targetElement (la colonna o la <li> genitore)
+    if (ul.children.length > 0) {
+        targetElement.appendChild(ul);
+    }
 }
 
-/* 1. LAYOUT DELLE COLONNE (Flexbox) */
-#colonne-drive {
-    display: flex; /* Attiva il layout orizzontale */
-    gap: 20px; /* Spazio tra le colonne */
-    padding: 15px;
-    border: 1px solid #ccc;
-    overflow-x: auto; /* Abilita lo scorrimento orizzontale se le colonne sono troppe */
-    margin-bottom: 20px;
+
+// ====================================================================
+// FUNZIONE PRINCIPALE: RECUPERO DATI API E COSTRUZIONE COLONNE
+// ====================================================================
+
+function listFilesInFolder() {
+    const columnsContainer = document.getElementById('colonne-drive');
+    columnsContainer.innerHTML = '<p>Caricamento struttura Drive...</p>';
+    
+    // Query API che recupera tutti i file e cartelle non cestinati che sono figli diretti della cartella radice,
+    // o cartelle in generale (per coprire le sottocartelle)
+    const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+or+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API: ${data.error.message}. Controlla la chiave API o i permessi di Drive.</p>`;
+                console.error('API Error:', data.error);
+                return;
+            }
+            
+            columnsContainer.innerHTML = ''; // Pulisce il messaggio di caricamento
+            
+            const allElements = data.files || [];
+            
+            // 1. Identifica le SOTTOCARTELLE PRINCIPALI (quelle sotto FOLDER_ID)
+            const mainFolders = allElements.filter(el => 
+                el.parents && el.parents.includes(FOLDER_ID) && 
+                el.mimeType === 'application/vnd.google-apps.folder'
+            );
+
+            // 2. Ordina alfabeticamente le cartelle principali
+            mainFolders.sort((a, b) => a.name.localeCompare(b.name));
+
+            // 3. Genera una colonna per OGNI cartella principale
+            mainFolders.forEach(folder => {
+                const columnDiv = document.createElement('div');
+                columnDiv.classList.add('document-column');
+
+                // Titolo della Colonna
+                columnDiv.innerHTML = `<h2>${folder.name}</h2>`;
+
+                // Popola la colonna con i contenuti della cartella (ricorsivamente)
+                renderFileList(folder.id, allElements, columnDiv);
+                
+                columnsContainer.appendChild(columnDiv);
+            });
+            
+             if (mainFolders.length === 0) {
+                 columnsContainer.innerHTML = '<p>Nessuna sottocartella principale trovata.</p>';
+             }
+            
+        })
+        .catch(error => {
+            console.error('Errore durante la connessione all\'API:', error);
+            columnsContainer.innerHTML = '<p style="color:red;">Impossibile connettersi a Google Drive. Controlla la tua connessione e la chiave API.</p>';
+        });
 }
 
-/* 2. STILE DELLA SINGOLA COLONNA */
-.document-column {
-    min-width: 280px; /* Larghezza minima per la leggibilità */
-    max-width: 350px; /* Larghezza massima */
-    flex-shrink: 0; /* Impedisce alle colonne di rimpicciolirsi troppo */
-    padding: 10px;
-    background-color: #f8f8f8;
-    border-radius: 6px;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-}
-
-/* 3. STILE DEL TITOLO DELLA COLONNA */
-.document-column h2 {
-    font-size: 1.3em;
-    border-bottom: 3px solid #007bff;
-    padding-bottom: 5px;
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: #333;
-    text-transform: uppercase;
-}
-
-/* 4. STILE DELLA LISTA e SCROLL */
-.document-column ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    max-height: 400px; /* Altezza massima fissa per la lista */
-    overflow-y: auto; /* Abilita lo scorrimento verticale solo all'interno della colonna */
-}
-
-/* Stile per i link ai documenti (file PDF) */
-.document-link {
-    display: block;
-    padding: 8px;
-    margin-bottom: 4px;
-    background-color: #ffffff;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    font-size: 0.9em;
-    white-space: nowrap; 
-    overflow: hidden;
-    text-overflow: ellipsis; 
-}
-
-.document-link:hover {
-    background-color: #d1e7ff;
-    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
-}
-
-/* Stile per le sottocartelle (se presenti all'interno di una colonna) */
-.sub-folder-title {
-    font-size: 0.95em;
-    color: #495057;
-    margin-top: 10px;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-/* Stile per il visualizzatore PDF */
-#pdf-viewer {
-    border: 1px solid #ccc;
-    padding: 10px;
-    min-height: 200px;
-    background-color: #fff;
-}
+document.addEventListener('DOMContentLoaded', listFilesInFolder);
