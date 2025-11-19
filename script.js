@@ -56,6 +56,7 @@ function initializeDragAndDrop() {
         const target = e.target;
         if (target.tagName === 'LI' && target !== draggedItem) {
             const rect = target.getBoundingClientRect();
+            // Inserisce prima o dopo in base alla metà superiore/inferiore
             const next = (e.clientY - rect.top) / rect.height > 0.5;
             orderList.insertBefore(draggedItem, next ? target.nextSibling : target);
         }
@@ -130,8 +131,18 @@ function handleFileCheckboxChange(fileId, fileName, isChecked) {
 
     if (isChecked) {
         if (fileIndex === -1) {
-            // Aggiunge il nuovo file alla fine
-            selectedFiles.push(fileData);
+            // ✅ NUOVA LOGICA: Inserimento in ordine alfabetico
+            
+            // Trova la posizione in cui inserire il nuovo file
+            let insertIndex = selectedFiles.findIndex(f => f.name.localeCompare(fileName) > 0);
+
+            if (insertIndex === -1) {
+                // Se non ci sono file successivi in ordine alfabetico, aggiungi alla fine
+                selectedFiles.push(fileData);
+            } else {
+                // Inserisci nella posizione trovata
+                selectedFiles.splice(insertIndex, 0, fileData);
+            }
         }
     } else {
         if (fileIndex > -1) {
@@ -150,7 +161,7 @@ function handleFileCheckboxChange(fileId, fileName, isChecked) {
 }
 
 /**
- * Aggiorna lo stato della checkbox della colonna. (funzione lasciata invariata)
+ * Aggiorna lo stato della checkbox della colonna. (invariata)
  */
 function updateColumnCheckboxStatus(fileId) {
     const fileCheckbox = document.getElementById(`pdf-file-${fileId}`);
@@ -178,7 +189,7 @@ function updateColumnCheckboxStatus(fileId) {
 }
 
 /**
- * Seleziona/deseleziona tutte le checkbox sotto una specifica colonna. (funzione lasciata invariata)
+ * Seleziona/deseleziona tutte le checkbox sotto una specifica colonna. (invariata)
  */
 function handleColumnCheckboxChange(columnId, isChecked) {
     const columnDiv = document.querySelector(`.document-column[data-folder-id="${columnId}"]`);
@@ -187,6 +198,7 @@ function handleColumnCheckboxChange(columnId, isChecked) {
     const fileCheckboxes = columnDiv.querySelectorAll('input[type="checkbox"]:not(.column-checkbox)');
     
     fileCheckboxes.forEach(checkbox => {
+        // Chiamando handleFileCheckboxChange, l'ordinamento alfabetico viene gestito
         if (checkbox.checked !== isChecked) {
             checkbox.checked = isChecked;
             handleFileCheckboxChange(checkbox.id.replace('pdf-file-', ''), checkbox.name, isChecked);
@@ -204,7 +216,7 @@ function handleColumnCheckboxChange(columnId, isChecked) {
 // ====================================================================
 
 function selectAll(isChecked) {
-    // Gestione colonne (seleziona/deseleziona tutto)
+    // Seleziona/Deseleziona tutte le checkbox
     const allColumnCheckboxes = document.querySelectorAll('input[type="checkbox"].column-checkbox');
     allColumnCheckboxes.forEach(columnCheckbox => {
         const columnId = columnCheckbox.id.replace('col-', '');
@@ -214,8 +226,8 @@ function selectAll(isChecked) {
         }
     });
     
-    // Se isChecked è false, l'array selectedFiles è già stato azzerato da handleFileCheckboxChange
-    // Se è true, l'array è riempito in ordine di apparizione nel DOM dalle chiamate precedenti.
+    // Se isChecked è false, l'array selectedFiles viene azzerato da handleFileCheckboxChange
+    // Se è true, l'array è popolato e ordinato da handleFileCheckboxChange
 
     updateViewer();
 }
@@ -227,7 +239,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI CARICAMENTO DRIVE (NON MODIFICATE)
+// FUNZIONI DI CARICAMENTO DRIVE (INVARIANTI)
 // ====================================================================
 
 /**
@@ -246,6 +258,7 @@ function renderFolderContents(parentId, targetElement) {
             
             const children = data.files || [];
             
+            // Ordina i file e le cartelle nella vista di selezione alfabeticamente
             children.sort((a, b) => {
                 const isFolderA = a.mimeType === 'application/vnd.google-apps.folder';
                 const isFolderB = b.mimeType === 'application/vnd.google-apps.folder';
