@@ -135,14 +135,8 @@ function selectAll(isChecked) {
         }
     });
 
-    // Gestione risultati ricerca
-    const allSearchCheckboxes = document.querySelectorAll('#search-results input[type="checkbox"]');
-    allSearchCheckboxes.forEach(checkbox => {
-         if (checkbox.checked !== isChecked) {
-             checkbox.checked = isChecked;
-             handleFileCheckboxChange(checkbox.id.replace('pdf-file-', ''), checkbox.name, isChecked);
-         }
-    });
+    // Siccome non c'è più la ricerca, gestiamo solo le colonne.
+    // L'array selectedFiles viene azzerato in ogni caso.
     
     if (!isChecked) {
         selectedFiles.length = 0;
@@ -154,126 +148,6 @@ function selectAll(isChecked) {
 function setupGlobalControls() {
     document.getElementById('seleziona-tutto').addEventListener('click', () => selectAll(true));
     document.getElementById('deseleziona-tutto').addEventListener('click', () => selectAll(false));
-}
-
-
-// ====================================================================
-// FUNZIONI DI RICERCA 
-// ====================================================================
-
-/**
- * Renderizza i risultati della ricerca in una singola colonna.
- */
-function renderSearchResults(results, containerElement, query) {
-    containerElement.innerHTML = '';
-    
-    if (results.length === 0) {
-        containerElement.innerHTML = `<p>Nessun documento trovato per la ricerca: <strong>${query}</strong>.</p>`;
-        return;
-    }
-
-    const searchColumn = document.createElement('div');
-    searchColumn.id = 'search-results';
-    searchColumn.classList.add('document-column');
-    searchColumn.innerHTML = `<h2>Risultati per "${query}"</h2>`;
-    
-    const ul = document.createElement('ul');
-    results.sort((a, b) => a.name.localeCompare(b.name));
-
-    results.forEach(item => {
-        const li = document.createElement('li');
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `pdf-file-${item.id}`; 
-        checkbox.name = item.name;
-        
-        const isSelected = selectedFiles.some(f => f.id === item.id);
-        checkbox.checked = isSelected;
-        
-        checkbox.onchange = (e) => handleFileCheckboxChange(item.id, item.name, e.target.checked);
-
-        const label = document.createElement('label');
-        label.htmlFor = `pdf-file-${item.id}`;
-        label.textContent = item.name;
-
-        li.appendChild(checkbox);
-        li.appendChild(label);
-        ul.appendChild(li);
-    });
-
-    searchColumn.appendChild(ul);
-    containerElement.appendChild(searchColumn);
-}
-
-/**
- * Passa dalla vista colonne alla vista ricerca e viceversa.
- */
-function toggleSearchView(isSearching) {
-    const resetButton = document.getElementById('reset-button');
-    const selectAllButton = document.getElementById('seleziona-tutto');
-    const deselectAllButton = document.getElementById('deseleziona-tutto');
-
-    if (isSearching) {
-        resetButton.style.display = 'inline-block';
-        selectAllButton.style.display = 'none';
-        deselectAllButton.style.display = 'none';
-    } else {
-        resetButton.style.display = 'none';
-        selectAllButton.style.display = 'inline-block';
-        deselectAllButton.style.display = 'inline-block';
-        listFilesInFolder(); // Ritorna alla visualizzazione delle colonne
-    }
-}
-
-/**
- * Esegue la ricerca, limitata ai file direttamente nella FOLDER_ID per stabilità.
- */
-function searchPdfContent() {
-    const query = document.getElementById('search-input').value.trim();
-    const columnsContainer = document.getElementById('colonne-drive');
-    
-    if (!query) {
-        alert('Inserisci un termine di ricerca valido.');
-        return;
-    }
-    
-    toggleSearchView(true); // Passa alla vista Ricerca
-    columnsContainer.innerHTML = `<p>Ricerca di "${query}" in corso...</p>`;
-    
-    const encodedQuery = encodeURIComponent(query);
-    
-    // Query limitata al root per evitare il 403.
-    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and '${FOLDER_ID}' in parents&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
-    
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                // Questo errore avverrà se cerchi contenuto in file annidati.
-                columnsContainer.innerHTML = `<p style="color:red;">Errore API Ricerca: ${data.error.message}. La ricerca ricorsiva è bloccata.</p>`;
-                return;
-            }
-            
-            const results = data.files || [];
-            
-            // Renderizza i risultati in una colonna "Search Results"
-            renderSearchResults(results, columnsContainer, query);
-        })
-        .catch(error => {
-            console.error('Errore durante la ricerca:', error);
-            columnsContainer.innerHTML = '<p style="color:red;">Impossibile eseguire la ricerca.</p>';
-        });
-}
-
-function setupSearchControls() {
-    document.getElementById('search-button').addEventListener('click', searchPdfContent);
-    document.getElementById('search-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            searchPdfContent();
-        }
-    });
-    document.getElementById('reset-button').addEventListener('click', () => toggleSearchView(false));
 }
 
 
@@ -410,7 +284,6 @@ function listFilesInFolder() {
              }
              
              setupGlobalControls();
-             setupSearchControls();
              updateViewer();
         }) 
         .catch(error => { 
@@ -422,6 +295,6 @@ function listFilesInFolder() {
 document.addEventListener('DOMContentLoaded', () => {
     // Inizializza la vista
     listFilesInFolder();
-    // Nasconde i pulsanti di reset all'avvio
-    document.getElementById('reset-button').style.display = 'none'; 
+    // Non abbiamo più bisogno del setupSearchControls o del reset-button 
+    // perché non c'è la vista di ricerca.
 });
