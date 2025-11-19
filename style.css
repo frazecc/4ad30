@@ -1,1 +1,22 @@
-t
+/* style.css */
+
+/* Stile per il corpo della pagina */
+body {
+    background-color: #f4f4f4; /* Sfondo grigio chiaro */
+    font-family: Arial, sans-serif; /* Un font leggibile */
+    margin: 40px; /* Spazio intorno al contenuto */
+}
+
+/* Stile per il titolo principale */
+h1 {
+    color: darkred; /* Colore rosso scuro */
+    border-bottom: 2px solid darkred; /* Linea di separazione sotto il titolo */
+    padding-bottom: 10px;
+}
+
+/* Stile per la classe di prova (ricordi il <p class="test-css">?) */
+.test-css {
+    color: blue; /* Colore blu */
+    font-size: 1.2em; /* Testo leggermente più grande */
+    font-style: italic;
+}
