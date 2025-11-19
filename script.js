@@ -2,7 +2,6 @@
 // CONFIGURAZIONE
 // ====================================================================
 
-// ✅ NUOVO FOLDER ID AGGIORNATO (PIC PER SITO)
 const FOLDER_ID = '1u3oZ-4XAOGEz5ygGEyb6fQrWnQ17sCjE'; 
 const API_KEY = 'AIzaSyDazhUnmMBqsxXG3C6lHCtgvU7xgaFC_zI'; 
 
@@ -167,7 +166,7 @@ function setupGlobalControls() {
 
 
 // ====================================================================
-// FUNZIONI DI RICERCA CONTENUTO (SOLUZIONE DEFINITIVA)
+// FUNZIONI DI RICERCA CONTENUTO (FINALMENTE RICORSIVA)
 // ====================================================================
 
 /**
@@ -187,18 +186,16 @@ function searchPdfContent() {
     
     const encodedQuery = encodeURIComponent(query);
     
-    // ✅ SOLUZIONE DEFINITIVA: Restringiamo la ricerca non solo con 'fullText', ma forziamo
-    // l'API a cercare solo i file che hanno il nostro FOLDER_ID nell'albero genealogico dei parents.
-    // L'operatore 'in parents' non è ricorsivo, ma Google Drive lo usa spesso come indice
-    // per limitare la ricerca ai contenuti pubblici all'interno dell'ambito fornito.
-    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false and '${FOLDER_ID}' in parents&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
+    // ✅ QUERY RICORSIVA: Rimuoviamo 'in parents' per consentire la ricerca nelle sottocartelle.
+    // L'unica possibilità che questa fallisca con 403 è che non tutti i file siano pubblici.
+    const url = `https://www.googleapis.com/drive/v3/files?q=fullText contains '${encodedQuery}' and mimeType='application/pdf' and trashed=false&fields=files(id,name,mimeType,parents)&key=${API_KEY}`;
     
     fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                // Riproponiamo l'errore per il debug
-                columnsContainer.innerHTML = `<p style="color:red;">Errore API Ricerca: ${data.error.message}.</p>`;
+                // Se c'è ancora un 403, il problema è solo la condivisione di uno o più file
+                columnsContainer.innerHTML = `<p style="color:red;">Errore API Ricerca: ${data.error.message}. <br><strong>Verifica che TUTTI i file PDF, anche quelli annidati, siano condivisi come 'Chiunque abbia il link'.</strong></p>`;
                 console.error('Search API Error:', data.error);
                 return;
             }
