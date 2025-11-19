@@ -4,7 +4,7 @@
 
 const FOLDER_ID = '1u3oZ-4XAOGEz5ygGEyb6fQrWnQ17sCjE'; 
 // 🔑 SOSTITUISCI con il tuo ID CLIENTE ottenuto dalla Console Cloud
-const CLIENT_ID = 'TUO_CLIENT_ID.apps.googleusercontent.com'; 
+const CLIENT_ID = '816591901188-disho7bqlb3g1m9d07amkfp989k0hhto.apps.googleusercontent.com'; 
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
 
 // L'ambito richiesto per vedere i metadati dei file pubblici e di quelli condivisi con l'utente
