@@ -1,25 +1,35 @@
 /* style.css */
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    padding: 20px;
-    max-width: 1000px;
-    margin: 0 auto;
+/* ... (Stili precedenti) ... */
+
+/* Stile per le cartelle */
+.folder {
+    font-weight: bold; /* Le cartelle sono in grassetto */
+    color: #007bff; /* Colore blu per differenziarle dai file */
+    cursor: default; /* Non sono cliccabili per aprire un PDF */
+    list-style-type: none; /* Rimuove il punto elenco */
+    padding: 5px 0;
 }
 
-#lista-file {
-    list-style: none; /* Rimuove i pallini della lista */
-    padding: 0;
-}
-
+/* Stile per i file PDF nella lista annidata */
 .document-link {
+    /* Manteniamo lo stile del link per i file */
     padding: 10px;
     margin-bottom: 5px;
     background-color: #e9ecef;
-    cursor: pointer; /* Indica che è cliccabile */
+    cursor: pointer;
     border-radius: 4px;
     transition: background-color 0.2s;
+    list-style-type: disc; /* Aggiunge un punto elenco ai file */
+    margin-left: 20px; /* Indenta i file */
 }
 
-.document-link:hover {
-    background-color: #ced4da; /* Effetto al passaggio del mouse */
+/* Indentazione per i sottolivelli della lista */
+#lista-file ul {
+    list-style: none;
+    padding-left: 20px; /* Aumenta l'indentazione per le sottocartelle/sottoliste */
+}
+
+/* Rimuovi l'indentazione extra dal livello radice */
+#lista-file > ul {
+    padding-left: 0; 
 }
